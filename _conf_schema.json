@@ -1,0 +1,8 @@
+{
+  "quick_change_enabled": {
+    "description": "启用批量切换功能",
+    "type": "bool",
+    "hint": "开启后，在 WebUI 页面可以一键将所有插件的同一类型模型批量切换为新模型",
+    "default": true
+  }
+}

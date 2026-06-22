@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>Model Manager</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <div class="header-spacer"></div>
+      <h1 class="header-title">Model Manager</h1>
+      <div class="header-actions">
+        <button id="refreshBtn" class="btn btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          <span>Refresh</span>
+        </button>
+        <button id="saveBtn" class="btn btn-primary" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span>Save</span>
+        </button>
+      </div>
+    </header>
+
+    <div id="statsBar" class="stats-bar" style="display:none">
+      <div class="stat-chip"><span class="stat-dot stat-dot--blue"></span><span id="statPlugins" class="stat-text">0 plugins</span></div>
+      <div class="stat-chip"><span class="stat-dot stat-dot--green"></span><span id="statFields" class="stat-text">0 fields</span></div>
+      <div class="stat-chip"><span class="stat-dot stat-dot--purple"></span><span id="statProviders" class="stat-text">0 models</span></div>
+      <div class="stat-chip"><span class="stat-dot stat-dot--orange"></span><span id="statChanges" class="stat-text">0 changes</span></div>
+    </div>
+
+    <div id="loadingView" class="loading-view">
+      <div class="spinner"></div>
+      <p class="loading-text">Scanning plugin configs...</p>
+    </div>
+
+    <div id="errorView" class="error-view" style="display:none">
+      <div class="error-icon">!</div>
+      <p id="errorMsg" class="error-text"></p>
+      <button id="retryBtn" class="btn btn-secondary" style="margin-top:16px">Retry</button>
+    </div>
+
+    <div id="emptyView" class="empty-view" style="display:none">
+      <p>No plugins with model configuration found</p>
+    </div>
+
+    <div id="contentView" class="content-view" style="display:none">
+      <div id="pluginGroups" class="plugin-groups"></div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

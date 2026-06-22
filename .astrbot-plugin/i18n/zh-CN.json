@@ -1,0 +1,7 @@
+{
+  "metadata.name": "模型管理器",
+  "metadata.description": "统一管理所有插件的 LLM 模型配置，一个页面查看和修改所有插件的模型分配，无需修改任何插件代码。",
+  "config.quick_change_enabled": "启用批量切换功能",
+  "config.quick_change_enabled.hint": "开启后，在 WebUI 页面可以一键将所有插件的同一类型模型批量切换为新模型",
+  "pages.model-manager.title": "模型管理器"
+}

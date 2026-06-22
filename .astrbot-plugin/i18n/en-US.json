@@ -1,0 +1,6 @@
+{
+  "metadata.name": "Model Manager",
+  "metadata.description": "Centrally manage LLM model assignments for all plugins from a single page. No code changes required.",
+  "config.quick_change_enabled": "Enable Batch Switch",
+  "config.quick_change_enabled.hint": "When enabled, you can batch-switch all plugins to a new model from the WebUI page"
+}
