@@ -59,7 +59,7 @@ const i18n = {
     sortSaved: "排序已保存",
     sortFailed: "保存排序失败：",
     plugins: " 个插件",
-    fields: " 个字段",
+    fields: " 个配置项",
     models: " 个模型",
     changesLabel: " 个更改",
     moveUp: "上移",
