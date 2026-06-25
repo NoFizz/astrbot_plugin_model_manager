@@ -30,9 +30,9 @@ PLUGIN_NAME = "astrbot_plugin_model_manager"
 )
 class ModelManagerPlugin(Star):
 
-    def __init__(self, context: Context, config: AstrBotConfig):
+    def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
-        self.config = config
+        self.config = config or {}
 
         context.register_web_api(
             f"/{PLUGIN_NAME}/settings",
@@ -57,6 +57,18 @@ class ModelManagerPlugin(Star):
             self.api_batch_update,
             ["POST"],
             "Batch update providers",
+        )
+        context.register_web_api(
+            f"/{PLUGIN_NAME}/sort-order",
+            self.api_get_sort_order,
+            ["GET"],
+            "Get plugin sort order",
+        )
+        context.register_web_api(
+            f"/{PLUGIN_NAME}/save-sort-order",
+            self.api_save_sort_order,
+            ["POST"],
+            "Save plugin sort order",
         )
         logger.info(f"[{PLUGIN_NAME}] v1.1 loaded")
 
@@ -333,3 +345,40 @@ class ModelManagerPlugin(Star):
             except Exception as e:
                 fails.append(f"{pn}/{fp}: {e}")
         return json_response({"status": "ok", "data": {"success": ok_count, "failures": fails}})
+
+    def _get_sort_order_file(self) -> pathlib.Path | None:
+        cfg_dir = self._get_config_dir()
+        if cfg_dir:
+            return cfg_dir / f"{PLUGIN_NAME}_sort_order.json"
+        return None
+
+    def _read_sort_order(self) -> list[str]:
+        f = self._get_sort_order_file()
+        if f and f.exists():
+            data = self._read_json_file(f)
+            if isinstance(data, list):
+                return data
+        return []
+
+    def _write_sort_order(self, order: list[str]):
+        f = self._get_sort_order_file()
+        if f:
+            self._write_json_file(f, order)
+
+    async def api_get_sort_order(self):
+        try:
+            order = self._read_sort_order()
+            return json_response({"status": "ok", "data": {"order": order}})
+        except Exception as e:
+            return error_response(str(e))
+
+    async def api_save_sort_order(self):
+        payload = await request.json(default={})
+        order = payload.get("order", [])
+        if not isinstance(order, list):
+            return error_response("order must be a list", status_code=400)
+        try:
+            self._write_sort_order(order)
+            return json_response({"status": "ok", "data": {"saved": True}})
+        except Exception as e:
+            return error_response(str(e))

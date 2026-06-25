@@ -10,6 +10,7 @@ const context = await bridge.ready();
 // State
 let allSettings = [];
 let providers = [];
+let sortOrder = [];
 const changes = new Map();
 
 // DOM helpers
@@ -49,6 +50,13 @@ async function loadAll() {
       providers = [];
     }
 
+    try {
+      const sortData = await bridge.apiGet("sort-order");
+      sortOrder = sortData.order || [];
+    } catch (e) {
+      sortOrder = [];
+    }
+
     changes.clear();
     updateSaveBtn();
 
@@ -80,15 +88,56 @@ function render() {
     groups.get(s.plugin_name).push(s);
   }
 
+  // Apply sort order
+  const sortedKeys = [];
+  const remaining = new Set(groups.keys());
+
+  // Add plugins from sort order first
+  for (const key of sortOrder) {
+    if (remaining.has(key)) {
+      sortedKeys.push(key);
+      remaining.delete(key);
+    }
+  }
+
+  // Add remaining plugins in original order
+  for (const key of groups.keys()) {
+    if (remaining.has(key)) {
+      sortedKeys.push(key);
+      remaining.delete(key);
+    }
+  }
+
   const container = $("#pluginGroups");
   container.innerHTML = "";
 
-  for (const [, settings] of groups) {
+  sortedKeys.forEach((pluginName, index) => {
+    const settings = groups.get(pluginName);
     const card = document.createElement("div");
     card.className = "plugin-card";
+    card.dataset.plugin = pluginName;
 
     const header = document.createElement("div");
     header.className = "plugin-card-header";
+
+    const sortBtns = document.createElement("div");
+    sortBtns.className = "plugin-card-sort";
+
+    const upBtn = document.createElement("button");
+    upBtn.className = "sort-btn";
+    upBtn.innerHTML = "&#9650;";
+    upBtn.title = "Move up";
+    upBtn.disabled = index === 0;
+    upBtn.addEventListener("click", () => movePlugin(pluginName, -1));
+
+    const downBtn = document.createElement("button");
+    downBtn.className = "sort-btn";
+    downBtn.innerHTML = "&#9660;";
+    downBtn.title = "Move down";
+    downBtn.disabled = index === sortedKeys.length - 1;
+    downBtn.addEventListener("click", () => movePlugin(pluginName, 1));
+
+    sortBtns.append(upBtn, downBtn);
 
     const title = document.createElement("div");
     title.className = "plugin-card-title";
@@ -98,7 +147,7 @@ function render() {
     badge.className = "plugin-card-badge";
     badge.textContent = settings.length + (settings.length === 1 ? " item" : " items");
 
-    header.append(title, badge);
+    header.append(sortBtns, title, badge);
 
     const body = document.createElement("div");
     body.className = "plugin-card-body";
@@ -106,6 +155,50 @@ function render() {
 
     card.append(header, body);
     container.appendChild(card);
+  });
+}
+
+async function movePlugin(pluginName, direction) {
+  const groups = new Map();
+  for (const s of allSettings) {
+    if (!groups.has(s.plugin_name)) groups.set(s.plugin_name, []);
+    groups.get(s.plugin_name).push(s);
+  }
+
+  const currentOrder = [];
+  const remaining = new Set(groups.keys());
+
+  for (const key of sortOrder) {
+    if (remaining.has(key)) {
+      currentOrder.push(key);
+      remaining.delete(key);
+    }
+  }
+
+  for (const key of groups.keys()) {
+    if (remaining.has(key)) {
+      currentOrder.push(key);
+      remaining.delete(key);
+    }
+  }
+
+  const currentIndex = currentOrder.indexOf(pluginName);
+  const newIndex = currentIndex + direction;
+
+  if (newIndex < 0 || newIndex >= currentOrder.length) return;
+
+  // Swap
+  [currentOrder[currentIndex], currentOrder[newIndex]] = [currentOrder[newIndex], currentOrder[currentIndex]];
+
+  sortOrder = currentOrder;
+  render();
+
+  // Save sort order
+  try {
+    await bridge.apiPost("save-sort-order", { order: sortOrder });
+    showToast("Sort order saved", "success");
+  } catch (err) {
+    showToast("Failed to save sort order: " + err.message, "error");
   }
 }
 
