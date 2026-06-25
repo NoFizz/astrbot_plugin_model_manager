@@ -317,5 +317,86 @@ currentModelSelect.addEventListener("change", updateSwitchPreview);
 newModelSelect.addEventListener("change", updateSwitchPreview);
 dialogConfirmBtn.addEventListener("click", confirmQuickSwitch);
 
+// Set All Dialog
+const setAllDialog = $("#setAllDialog");
+const setAllModelSelect = $("#setAllModelSelect");
+const setAllPreview = $("#setAllPreview");
+const setAllConfirmBtn = $("#setAllConfirmBtn");
+
+function openSetAll() {
+  // Populate model select with available providers
+  setAllModelSelect.innerHTML = '<option value="">-- Select model --</option>';
+  for (const p of providers) {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.id + (p.model ? " [" + p.model + "]" : "");
+    setAllModelSelect.appendChild(opt);
+  }
+
+  setAllPreview.style.display = "none";
+  setAllConfirmBtn.disabled = true;
+  setAllDialog.style.display = "flex";
+}
+
+function closeSetAll() {
+  setAllDialog.style.display = "none";
+}
+
+function updateSetAllPreview() {
+  const model = setAllModelSelect.value;
+
+  if (!model) {
+    setAllPreview.style.display = "none";
+    setAllConfirmBtn.disabled = true;
+    return;
+  }
+
+  setAllPreview.style.display = "block";
+  setAllPreview.querySelector(".dialog-preview-text").textContent =
+    `Will set ALL ${allSettings.length} field(s) to "${model}"`;
+  setAllConfirmBtn.disabled = false;
+}
+
+async function confirmSetAll() {
+  const model = setAllModelSelect.value;
+
+  if (!model) return;
+
+  if (allSettings.length === 0) {
+    showToast("No fields to update", "error");
+    return;
+  }
+
+  const updates = allSettings.map((s) => ({
+    plugin_name: s.plugin_name,
+    field_path: s.field_path,
+    value: model,
+  }));
+
+  setAllConfirmBtn.disabled = true;
+  try {
+    const res = await bridge.apiPost("batch", { updates });
+    const ok = res.success || 0;
+    const fails = res.failures || [];
+    showToast(
+      fails.length === 0
+        ? `Set all ${ok} field(s) to "${model}"`
+        : `Set ${ok}, failed ${fails.length}`,
+      fails.length === 0 ? "success" : "error"
+    );
+    closeSetAll();
+    await loadAll();
+  } catch (err) {
+    showToast("Set all failed: " + err.message, "error");
+    setAllConfirmBtn.disabled = false;
+  }
+}
+
+$("#setAllBtn").addEventListener("click", openSetAll);
+$("#setAllCloseBtn").addEventListener("click", closeSetAll);
+$("#setAllCancelBtn").addEventListener("click", closeSetAll);
+setAllModelSelect.addEventListener("change", updateSetAllPreview);
+setAllConfirmBtn.addEventListener("click", confirmSetAll);
+
 // Start
 await loadAll();
