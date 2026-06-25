@@ -216,5 +216,106 @@ $("#refreshBtn").addEventListener("click", loadAll);
 $("#retryBtn").addEventListener("click", loadAll);
 $("#saveBtn").addEventListener("click", saveAll);
 
+// Quick Switch Dialog
+const quickSwitchDialog = $("#quickSwitchDialog");
+const currentModelSelect = $("#currentModelSelect");
+const newModelSelect = $("#newModelSelect");
+const switchPreview = $("#switchPreview");
+const dialogConfirmBtn = $("#dialogConfirmBtn");
+
+function openQuickSwitch() {
+  // Populate current model select with unique values from settings
+  const uniqueModels = new Set();
+  for (const s of allSettings) {
+    if (s.current_value) uniqueModels.add(s.current_value);
+  }
+
+  currentModelSelect.innerHTML = '<option value="">-- Select current model --</option>';
+  for (const m of uniqueModels) {
+    const opt = document.createElement("option");
+    opt.value = m;
+    opt.textContent = m;
+    currentModelSelect.appendChild(opt);
+  }
+
+  // Populate new model select with available providers
+  newModelSelect.innerHTML = '<option value="">-- Select new model --</option>';
+  for (const p of providers) {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.id + (p.model ? " [" + p.model + "]" : "");
+    newModelSelect.appendChild(opt);
+  }
+
+  switchPreview.style.display = "none";
+  dialogConfirmBtn.disabled = true;
+  quickSwitchDialog.style.display = "flex";
+}
+
+function closeQuickSwitch() {
+  quickSwitchDialog.style.display = "none";
+}
+
+function updateSwitchPreview() {
+  const current = currentModelSelect.value;
+  const newModel = newModelSelect.value;
+
+  if (!current || !newModel) {
+    switchPreview.style.display = "none";
+    dialogConfirmBtn.disabled = true;
+    return;
+  }
+
+  const affected = allSettings.filter((s) => s.current_value === current);
+  switchPreview.style.display = "block";
+  switchPreview.querySelector(".dialog-preview-text").textContent =
+    `Will replace "${current}" with "${newModel}" in ${affected.length} field(s)`;
+  dialogConfirmBtn.disabled = false;
+}
+
+async function confirmQuickSwitch() {
+  const current = currentModelSelect.value;
+  const newModel = newModelSelect.value;
+
+  if (!current || !newModel) return;
+
+  const affected = allSettings.filter((s) => s.current_value === current);
+  if (affected.length === 0) {
+    showToast("No fields to update", "error");
+    return;
+  }
+
+  const updates = affected.map((s) => ({
+    plugin_name: s.plugin_name,
+    field_path: s.field_path,
+    value: newModel,
+  }));
+
+  dialogConfirmBtn.disabled = true;
+  try {
+    const res = await bridge.apiPost("batch", { updates });
+    const ok = res.success || 0;
+    const fails = res.failures || [];
+    showToast(
+      fails.length === 0
+        ? `Switched ${ok} field(s) from "${current}" to "${newModel}"`
+        : `Switched ${ok}, failed ${fails.length}`,
+      fails.length === 0 ? "success" : "error"
+    );
+    closeQuickSwitch();
+    await loadAll();
+  } catch (err) {
+    showToast("Switch failed: " + err.message, "error");
+    dialogConfirmBtn.disabled = false;
+  }
+}
+
+$("#quickSwitchBtn").addEventListener("click", openQuickSwitch);
+$("#dialogCloseBtn").addEventListener("click", closeQuickSwitch);
+$("#dialogCancelBtn").addEventListener("click", closeQuickSwitch);
+currentModelSelect.addEventListener("change", updateSwitchPreview);
+newModelSelect.addEventListener("change", updateSwitchPreview);
+dialogConfirmBtn.addEventListener("click", confirmQuickSwitch);
+
 // Start
 await loadAll();
