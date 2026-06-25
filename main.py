@@ -70,6 +70,18 @@ class ModelManagerPlugin(Star):
             ["POST"],
             "Save plugin sort order",
         )
+        context.register_web_api(
+            f"/{PLUGIN_NAME}/language",
+            self.api_get_language,
+            ["GET"],
+            "Get language setting",
+        )
+        context.register_web_api(
+            f"/{PLUGIN_NAME}/language",
+            self.api_save_language,
+            ["POST"],
+            "Save language setting",
+        )
         logger.info(f"[{PLUGIN_NAME}] v1.1 loaded")
 
     def _get_config_dir(self) -> pathlib.Path | None:
@@ -379,6 +391,43 @@ class ModelManagerPlugin(Star):
             return error_response("order must be a list", status_code=400)
         try:
             self._write_sort_order(order)
+            return json_response({"status": "ok", "data": {"saved": True}})
+        except Exception as e:
+            return error_response(str(e))
+
+    def _get_language_file(self) -> pathlib.Path | None:
+        cfg_dir = self._get_config_dir()
+        if cfg_dir:
+            return cfg_dir / f"{PLUGIN_NAME}_language.json"
+        return None
+
+    def _read_language(self) -> str:
+        f = self._get_language_file()
+        if f and f.exists():
+            data = self._read_json_file(f)
+            if isinstance(data, dict) and "lang" in data:
+                return data["lang"]
+        return "zh"
+
+    def _write_language(self, lang: str):
+        f = self._get_language_file()
+        if f:
+            self._write_json_file(f, {"lang": lang})
+
+    async def api_get_language(self):
+        try:
+            lang = self._read_language()
+            return json_response({"status": "ok", "data": {"lang": lang}})
+        except Exception as e:
+            return error_response(str(e))
+
+    async def api_save_language(self):
+        payload = await request.json(default={})
+        lang = payload.get("lang", "zh")
+        if lang not in ("zh", "en"):
+            lang = "zh"
+        try:
+            self._write_language(lang)
             return json_response({"status": "ok", "data": {"saved": True}})
         except Exception as e:
             return error_response(str(e))

@@ -7,6 +7,166 @@ const bridge = window.AstrBotPluginPage;
 // Wait for bridge ready (official pattern)
 const context = await bridge.ready();
 
+// i18n
+const i18n = {
+  zh: {
+    title: "模型管理器",
+    refresh: "刷新",
+    quickSwitch: "快速替换",
+    setAll: "全部设置",
+    save: "保存",
+    scanning: "正在扫描插件配置...",
+    retry: "重试",
+    noPlugins: "未找到包含模型配置的插件",
+    quickSwitchTitle: "快速替换模型",
+    currentModel: "当前模型（要替换的）",
+    selectCurrent: "-- 选择当前模型 --",
+    newModel: "新模型",
+    selectNew: "-- 选择新模型 --",
+    cancel: "取消",
+    switchAll: "替换全部",
+    setAllTitle: "设置所有模型",
+    targetModel: "目标模型",
+    selectModel: "-- 选择模型 --",
+    setAllConfirm: "全部设置",
+    items: " 个字段",
+    item: " 个字段",
+    configured: "（已配置）",
+    clearOrNotSet: "-- 清除 --",
+    notSet: "-- 未设置 --",
+    saved: "已保存 ",
+    changes: " 个更改",
+    failed: "，失败 ",
+    switchPreview: '将把所有使用 "',
+    switchPreview2: '" 的字段替换为 "',
+    switchPreview3: '"，共 ',
+    switchPreview4: " 个字段",
+    setAllPreview: "将设置所有 ",
+    setAllPreview2: " 个字段为 ",
+
+    switchSuccess: "已将 ",
+    switchSuccess2: " 个字段从 ",
+
+    switchSuccess3: " 替换为 ",
+
+    setAllSuccess: "已将所有 ",
+    setAllSuccess2: " 个字段设置为 ",
+
+    noFields: "没有需要更新的字段",
+    saveFailed: "保存失败：",
+    switchFailed: "替换失败：",
+    setAllFailed: "设置失败：",
+    sortSaved: "排序已保存",
+    sortFailed: "保存排序失败：",
+    plugins: " 个插件",
+    fields: " 个字段",
+    models: " 个模型",
+    changesLabel: " 个更改",
+    moveUp: "上移",
+    moveDown: "下移",
+  },
+  en: {
+    title: "Model Manager",
+    refresh: "Refresh",
+    quickSwitch: "Quick Switch",
+    setAll: "Set All",
+    save: "Save",
+    scanning: "Scanning plugin configs...",
+    retry: "Retry",
+    noPlugins: "No plugins with model configuration found",
+    quickSwitchTitle: "Quick Switch Model",
+    currentModel: "Current Model (to replace)",
+    selectCurrent: "-- Select current model --",
+    newModel: "New Model",
+    selectNew: "-- Select new model --",
+    cancel: "Cancel",
+    switchAll: "Switch All",
+    setAllTitle: "Set All Models",
+    targetModel: "Target Model",
+    selectModel: "-- Select model --",
+    setAllConfirm: "Set All",
+    items: " items",
+    item: " item",
+    configured: " (configured)",
+    clearOrNotSet: "-- clear --",
+    notSet: "-- not set --",
+    saved: "Saved ",
+    changes: " changes",
+    failed: ", failed ",
+    switchPreview: 'Will replace "',
+    switchPreview2: '" with "',
+    switchPreview3: '" in ',
+    switchPreview4: " field(s)",
+    setAllPreview: "Will set ALL ",
+    setAllPreview2: " field(s) to ",
+
+    switchSuccess: "Switched ",
+    switchSuccess2: " field(s) from ",
+
+    switchSuccess3: " to ",
+
+    setAllSuccess: "Set all ",
+    setAllSuccess2: " field(s) to ",
+
+    noFields: "No fields to update",
+    saveFailed: "Save failed: ",
+    switchFailed: "Switch failed: ",
+    setAllFailed: "Set all failed: ",
+    sortSaved: "Sort order saved",
+    sortFailed: "Failed to save sort order: ",
+    plugins: " plugins",
+    fields: " fields",
+    models: " models",
+    changesLabel: " changes",
+    moveUp: "Move up",
+    moveDown: "Move down",
+  },
+};
+
+let currentLang = "zh";
+
+function t(key) {
+  return i18n[currentLang][key] || key;
+}
+
+function applyLanguage() {
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const key = el.getAttribute("data-i18n");
+    el.textContent = t(key);
+  });
+
+  // Update select options with data-i18n
+  document.querySelectorAll("option[data-i18n]").forEach((el) => {
+    const key = el.getAttribute("data-i18n");
+    el.textContent = t(key);
+  });
+}
+
+async function loadLanguage() {
+  try {
+    const data = await bridge.apiGet("language");
+    currentLang = data.lang || "zh";
+  } catch (e) {
+    currentLang = "zh";
+  }
+}
+
+async function saveLanguage(lang) {
+  try {
+    await bridge.apiPost("language", { lang });
+  } catch (e) {
+    // ignore
+  }
+}
+
+function toggleLanguage() {
+  currentLang = currentLang === "zh" ? "en" : "zh";
+  saveLanguage(currentLang);
+  applyLanguage();
+  render();
+  updateStats();
+}
+
 // State
 let allSettings = [];
 let providers = [];
@@ -39,6 +199,9 @@ function showToast(msg, type) {
 async function loadAll() {
   showState("loading");
   try {
+    await loadLanguage();
+    applyLanguage();
+
     // bridge.apiGet resolves to the "data" field automatically
     const settingsData = await bridge.apiGet("settings");
     allSettings = settingsData.settings || [];
@@ -126,14 +289,14 @@ function render() {
     const upBtn = document.createElement("button");
     upBtn.className = "sort-btn";
     upBtn.innerHTML = "&#9650;";
-    upBtn.title = "Move up";
+    upBtn.title = t("moveUp");
     upBtn.disabled = index === 0;
     upBtn.addEventListener("click", () => movePlugin(pluginName, -1));
 
     const downBtn = document.createElement("button");
     downBtn.className = "sort-btn";
     downBtn.innerHTML = "&#9660;";
-    downBtn.title = "Move down";
+    downBtn.title = t("moveDown");
     downBtn.disabled = index === sortedKeys.length - 1;
     downBtn.addEventListener("click", () => movePlugin(pluginName, 1));
 
@@ -145,7 +308,7 @@ function render() {
 
     const badge = document.createElement("div");
     badge.className = "plugin-card-badge";
-    badge.textContent = settings.length + (settings.length === 1 ? " item" : " items");
+    badge.textContent = settings.length + (settings.length === 1 ? t("item") : t("items"));
 
     header.append(sortBtns, title, badge);
 
@@ -196,9 +359,9 @@ async function movePlugin(pluginName, direction) {
   // Save sort order
   try {
     await bridge.apiPost("save-sort-order", { order: sortOrder });
-    showToast("Sort order saved", "success");
+    showToast(t("sortSaved"), "success");
   } catch (err) {
-    showToast("Failed to save sort order: " + err.message, "error");
+    showToast(t("sortFailed") + err.message, "error");
   }
 }
 
@@ -236,13 +399,13 @@ function buildRow(s) {
 
   const emptyOpt = document.createElement("option");
   emptyOpt.value = "";
-  emptyOpt.textContent = cur ? "-- clear --" : "-- not set --";
+  emptyOpt.textContent = cur ? t("clearOrNotSet") : t("notSet");
   sel.appendChild(emptyOpt);
 
   if (cur && !providers.some((p) => p.id === cur)) {
     const opt = document.createElement("option");
     opt.value = cur;
-    opt.textContent = cur + " (configured)";
+    opt.textContent = cur + t("configured");
     opt.selected = true;
     sel.appendChild(opt);
   }
@@ -276,10 +439,10 @@ function buildRow(s) {
 // Stats & Save
 function updateStats() {
   const pn = new Set(allSettings.map((s) => s.plugin_name));
-  $("#statPlugins").textContent = pn.size + " plugins";
-  $("#statFields").textContent = allSettings.length + " fields";
-  $("#statProviders").textContent = providers.length + " models";
-  $("#statChanges").textContent = changes.size + " changes";
+  $("#statPlugins").textContent = pn.size + t("plugins");
+  $("#statFields").textContent = allSettings.length + t("fields");
+  $("#statProviders").textContent = providers.length + t("models");
+  $("#statChanges").textContent = changes.size + t("changesLabel");
 }
 
 function updateSaveBtn() {
@@ -294,12 +457,12 @@ async function saveAll() {
     const ok = res.success || 0;
     const fails = res.failures || [];
     showToast(
-      fails.length === 0 ? "Saved " + ok + " changes" : "Saved " + ok + ", failed " + fails.length,
+      fails.length === 0 ? t("saved") + ok + t("changes") : t("saved") + ok + t("failed") + fails.length,
       fails.length === 0 ? "success" : "error"
     );
     await loadAll();
   } catch (err) {
-    showToast("Save failed: " + err.message, "error");
+    showToast(t("saveFailed") + err.message, "error");
     $("#saveBtn").disabled = false;
   }
 }
@@ -308,6 +471,7 @@ async function saveAll() {
 $("#refreshBtn").addEventListener("click", loadAll);
 $("#retryBtn").addEventListener("click", loadAll);
 $("#saveBtn").addEventListener("click", saveAll);
+$("#langBtn").addEventListener("click", toggleLanguage);
 
 // Quick Switch Dialog
 const quickSwitchDialog = $("#quickSwitchDialog");
@@ -323,7 +487,7 @@ function openQuickSwitch() {
     if (s.current_value) uniqueModels.add(s.current_value);
   }
 
-  currentModelSelect.innerHTML = '<option value="">-- Select current model --</option>';
+  currentModelSelect.innerHTML = `<option value="">${t("selectCurrent")}</option>`;
   for (const m of uniqueModels) {
     const opt = document.createElement("option");
     opt.value = m;
@@ -332,7 +496,7 @@ function openQuickSwitch() {
   }
 
   // Populate new model select with available providers
-  newModelSelect.innerHTML = '<option value="">-- Select new model --</option>';
+  newModelSelect.innerHTML = `<option value="">${t("selectNew")}</option>`;
   for (const p of providers) {
     const opt = document.createElement("option");
     opt.value = p.id;
@@ -362,7 +526,7 @@ function updateSwitchPreview() {
   const affected = allSettings.filter((s) => s.current_value === current);
   switchPreview.style.display = "block";
   switchPreview.querySelector(".dialog-preview-text").textContent =
-    `Will replace "${current}" with "${newModel}" in ${affected.length} field(s)`;
+    t("switchPreview") + current + t("switchPreview2") + newModel + t("switchPreview3") + affected.length + t("switchPreview4");
   dialogConfirmBtn.disabled = false;
 }
 
@@ -374,7 +538,7 @@ async function confirmQuickSwitch() {
 
   const affected = allSettings.filter((s) => s.current_value === current);
   if (affected.length === 0) {
-    showToast("No fields to update", "error");
+    showToast(t("noFields"), "error");
     return;
   }
 
@@ -391,14 +555,14 @@ async function confirmQuickSwitch() {
     const fails = res.failures || [];
     showToast(
       fails.length === 0
-        ? `Switched ${ok} field(s) from "${current}" to "${newModel}"`
-        : `Switched ${ok}, failed ${fails.length}`,
+        ? t("switchSuccess") + ok + t("switchSuccess2") + current + t("switchSuccess3") + newModel
+        : t("switchSuccess") + ok + t("failed") + fails.length,
       fails.length === 0 ? "success" : "error"
     );
     closeQuickSwitch();
     await loadAll();
   } catch (err) {
-    showToast("Switch failed: " + err.message, "error");
+    showToast(t("switchFailed") + err.message, "error");
     dialogConfirmBtn.disabled = false;
   }
 }
@@ -418,7 +582,7 @@ const setAllConfirmBtn = $("#setAllConfirmBtn");
 
 function openSetAll() {
   // Populate model select with available providers
-  setAllModelSelect.innerHTML = '<option value="">-- Select model --</option>';
+  setAllModelSelect.innerHTML = `<option value="">${t("selectModel")}</option>`;
   for (const p of providers) {
     const opt = document.createElement("option");
     opt.value = p.id;
@@ -446,7 +610,7 @@ function updateSetAllPreview() {
 
   setAllPreview.style.display = "block";
   setAllPreview.querySelector(".dialog-preview-text").textContent =
-    `Will set ALL ${allSettings.length} field(s) to "${model}"`;
+    t("setAllPreview") + allSettings.length + t("setAllPreview2") + model;
   setAllConfirmBtn.disabled = false;
 }
 
@@ -456,7 +620,7 @@ async function confirmSetAll() {
   if (!model) return;
 
   if (allSettings.length === 0) {
-    showToast("No fields to update", "error");
+    showToast(t("noFields"), "error");
     return;
   }
 
@@ -473,14 +637,14 @@ async function confirmSetAll() {
     const fails = res.failures || [];
     showToast(
       fails.length === 0
-        ? `Set all ${ok} field(s) to "${model}"`
-        : `Set ${ok}, failed ${fails.length}`,
+        ? t("setAllSuccess") + ok + t("setAllSuccess2") + model
+        : t("setAllSuccess") + ok + t("failed") + fails.length,
       fails.length === 0 ? "success" : "error"
     );
     closeSetAll();
     await loadAll();
   } catch (err) {
-    showToast("Set all failed: " + err.message, "error");
+    showToast(t("setAllFailed") + err.message, "error");
     setAllConfirmBtn.disabled = false;
   }
 }

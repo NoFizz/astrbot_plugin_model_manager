@@ -8,48 +8,50 @@
 <body>
   <div id="app">
     <header class="header">
-      <div class="header-spacer"></div>
-      <h1 class="header-title">Model Manager</h1>
+      <div class="header-left">
+        <button id="langBtn" class="btn btn-secondary btn-lang">EN/中</button>
+      </div>
+      <h1 class="header-title" data-i18n="title">模型管理器</h1>
       <div class="header-actions">
         <button id="refreshBtn" class="btn btn-secondary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          <span>Refresh</span>
+          <span data-i18n="refresh">刷新</span>
         </button>
         <button id="quickSwitchBtn" class="btn btn-secondary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-          <span>Quick Switch</span>
+          <span data-i18n="quickSwitch">快速替换</span>
         </button>
         <button id="setAllBtn" class="btn btn-secondary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-          <span>Set All</span>
+          <span data-i18n="setAll">全部设置</span>
         </button>
         <button id="saveBtn" class="btn btn-primary" disabled>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-          <span>Save</span>
+          <span data-i18n="save">保存</span>
         </button>
       </div>
     </header>
 
     <div id="statsBar" class="stats-bar" style="display:none">
-      <div class="stat-chip"><span class="stat-dot stat-dot--blue"></span><span id="statPlugins" class="stat-text">0 plugins</span></div>
-      <div class="stat-chip"><span class="stat-dot stat-dot--green"></span><span id="statFields" class="stat-text">0 fields</span></div>
-      <div class="stat-chip"><span class="stat-dot stat-dot--purple"></span><span id="statProviders" class="stat-text">0 models</span></div>
-      <div class="stat-chip"><span class="stat-dot stat-dot--orange"></span><span id="statChanges" class="stat-text">0 changes</span></div>
+      <div class="stat-chip"><span class="stat-dot stat-dot--blue"></span><span id="statPlugins" class="stat-text" data-i18n-stat="plugins">0 个插件</span></div>
+      <div class="stat-chip"><span class="stat-dot stat-dot--green"></span><span id="statFields" class="stat-text" data-i18n-stat="fields">0 个字段</span></div>
+      <div class="stat-chip"><span class="stat-dot stat-dot--purple"></span><span id="statProviders" class="stat-text" data-i18n-stat="models">0 个模型</span></div>
+      <div class="stat-chip"><span class="stat-dot stat-dot--orange"></span><span id="statChanges" class="stat-text" data-i18n-stat="changes">0 个更改</span></div>
     </div>
 
     <div id="loadingView" class="loading-view">
       <div class="spinner"></div>
-      <p class="loading-text">Scanning plugin configs...</p>
+      <p class="loading-text" data-i18n="scanning">正在扫描插件配置...</p>
     </div>
 
     <div id="errorView" class="error-view" style="display:none">
       <div class="error-icon">!</div>
       <p id="errorMsg" class="error-text"></p>
-      <button id="retryBtn" class="btn btn-secondary" style="margin-top:16px">Retry</button>
+      <button id="retryBtn" class="btn btn-secondary" style="margin-top:16px" data-i18n="retry">重试</button>
     </div>
 
     <div id="emptyView" class="empty-view" style="display:none">
-      <p>No plugins with model configuration found</p>
+      <p data-i18n="noPlugins">未找到包含模型配置的插件</p>
     </div>
 
     <div id="contentView" class="content-view" style="display:none">
@@ -62,20 +64,20 @@
     <div id="quickSwitchDialog" class="dialog-overlay" style="display:none">
       <div class="dialog">
         <div class="dialog-header">
-          <h2 class="dialog-title">Quick Switch Model</h2>
+          <h2 class="dialog-title" data-i18n="quickSwitchTitle">快速替换模型</h2>
           <button id="dialogCloseBtn" class="dialog-close">&times;</button>
         </div>
         <div class="dialog-body">
           <div class="dialog-field">
-            <label class="dialog-label">Current Model (to replace)</label>
+            <label class="dialog-label" data-i18n="currentModel">当前模型（要替换的）</label>
             <select id="currentModelSelect" class="field-select">
-              <option value="">-- Select current model --</option>
+              <option value="" data-i18n="selectCurrent">-- 选择当前模型 --</option>
             </select>
           </div>
           <div class="dialog-field">
-            <label class="dialog-label">New Model</label>
+            <label class="dialog-label" data-i18n="newModel">新模型</label>
             <select id="newModelSelect" class="field-select">
-              <option value="">-- Select new model --</option>
+              <option value="" data-i18n="selectNew">-- 选择新模型 --</option>
             </select>
           </div>
           <div id="switchPreview" class="dialog-preview" style="display:none">
@@ -83,8 +85,8 @@
           </div>
         </div>
         <div class="dialog-footer">
-          <button id="dialogCancelBtn" class="btn btn-secondary">Cancel</button>
-          <button id="dialogConfirmBtn" class="btn btn-primary" disabled>Switch All</button>
+          <button id="dialogCancelBtn" class="btn btn-secondary" data-i18n="cancel">取消</button>
+          <button id="dialogConfirmBtn" class="btn btn-primary" disabled data-i18n="switchAll">替换全部</button>
         </div>
       </div>
     </div>
@@ -93,14 +95,14 @@
     <div id="setAllDialog" class="dialog-overlay" style="display:none">
       <div class="dialog">
         <div class="dialog-header">
-          <h2 class="dialog-title">Set All Models</h2>
+          <h2 class="dialog-title" data-i18n="setAllTitle">设置所有模型</h2>
           <button id="setAllCloseBtn" class="dialog-close">&times;</button>
         </div>
         <div class="dialog-body">
           <div class="dialog-field">
-            <label class="dialog-label">Target Model</label>
+            <label class="dialog-label" data-i18n="targetModel">目标模型</label>
             <select id="setAllModelSelect" class="field-select">
-              <option value="">-- Select model --</option>
+              <option value="" data-i18n="selectModel">-- 选择模型 --</option>
             </select>
           </div>
           <div id="setAllPreview" class="dialog-preview" style="display:none">
@@ -108,8 +110,8 @@
           </div>
         </div>
         <div class="dialog-footer">
-          <button id="setAllCancelBtn" class="btn btn-secondary">Cancel</button>
-          <button id="setAllConfirmBtn" class="btn btn-primary" disabled>Set All</button>
+          <button id="setAllCancelBtn" class="btn btn-secondary" data-i18n="cancel">取消</button>
+          <button id="setAllConfirmBtn" class="btn btn-primary" disabled data-i18n="setAllConfirm">全部设置</button>
         </div>
       </div>
     </div>
