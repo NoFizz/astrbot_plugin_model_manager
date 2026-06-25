@@ -1,0 +1,8 @@
+{
+  "_info": {
+    "type": "string",
+    "description": "这个插件没有配置",
+    "default": "",
+    "hint": "所有功能通过插件页面(Model Manager)使用"
+  }
+}
