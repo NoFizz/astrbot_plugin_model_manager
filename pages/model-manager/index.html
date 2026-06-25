@@ -15,6 +15,10 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
           <span>Refresh</span>
         </button>
+        <button id="quickSwitchBtn" class="btn btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          <span>Quick Switch</span>
+        </button>
         <button id="saveBtn" class="btn btn-primary" disabled>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           <span>Save</span>
@@ -49,6 +53,37 @@
     </div>
 
     <div id="toast" class="toast"></div>
+
+    <!-- Quick Switch Dialog -->
+    <div id="quickSwitchDialog" class="dialog-overlay" style="display:none">
+      <div class="dialog">
+        <div class="dialog-header">
+          <h2 class="dialog-title">Quick Switch Model</h2>
+          <button id="dialogCloseBtn" class="dialog-close">&times;</button>
+        </div>
+        <div class="dialog-body">
+          <div class="dialog-field">
+            <label class="dialog-label">Current Model (to replace)</label>
+            <select id="currentModelSelect" class="field-select">
+              <option value="">-- Select current model --</option>
+            </select>
+          </div>
+          <div class="dialog-field">
+            <label class="dialog-label">New Model</label>
+            <select id="newModelSelect" class="field-select">
+              <option value="">-- Select new model --</option>
+            </select>
+          </div>
+          <div id="switchPreview" class="dialog-preview" style="display:none">
+            <p class="dialog-preview-text"></p>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button id="dialogCancelBtn" class="btn btn-secondary">Cancel</button>
+          <button id="dialogConfirmBtn" class="btn btn-primary" disabled>Switch All</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="./app.js"></script>
