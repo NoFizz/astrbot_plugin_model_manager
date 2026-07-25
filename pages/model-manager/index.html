@@ -9,7 +9,13 @@
 <body>
   <div id="app">
     <header class="header">
-      <h1 class="header-title" data-i18n="title">模型管理器</h1>
+      <div class="header-brand">
+        <div class="header-title-row">
+          <h1 class="header-title" data-i18n="title">模型管理器</h1>
+          <span id="headerVersion" class="header-version">v1.2.2</span>
+        </div>
+        <p class="header-subtitle" data-i18n="subtitle">统一管理所有插件的模型分配</p>
+      </div>
       <div class="header-actions">
         <button id="refreshBtn" class="btn btn-secondary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
@@ -26,15 +32,32 @@
         <button id="saveBtn" class="btn btn-primary" disabled>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           <span data-i18n="save">保存</span>
+          <span id="saveBadge" class="save-badge">0</span>
         </button>
       </div>
     </header>
 
     <div id="statsBar" class="stats-bar" style="display:none">
-      <div class="stat-chip"><span class="stat-dot stat-dot--green"></span><span id="statPlugins" class="stat-text" data-i18n-stat="plugins">0 个插件</span></div>
-      <div class="stat-chip"><span class="stat-dot stat-dot--orange"></span><span id="statFields" class="stat-text" data-i18n-stat="fields">0 个配置项</span></div>
-      <div class="stat-chip"><span class="stat-dot stat-dot--purple"></span><span id="statProviders" class="stat-text" data-i18n-stat="models">0 个模型</span></div>
-      <div class="stat-chip"><span class="stat-dot stat-dot--blue"></span><span id="statChanges" class="stat-text" data-i18n-stat="changes">0 个更改</span></div>
+      <div class="stat-chip">
+        <span class="stat-dot stat-dot--green"></span>
+        <span class="stat-num" id="statPlugins">0</span>
+        <span class="stat-label" data-i18n="statPluginsLabel">插件</span>
+      </div>
+      <div class="stat-chip">
+        <span class="stat-dot stat-dot--orange"></span>
+        <span class="stat-num" id="statFields">0</span>
+        <span class="stat-label" data-i18n="statFieldsLabel">配置项</span>
+      </div>
+      <div class="stat-chip">
+        <span class="stat-dot stat-dot--purple"></span>
+        <span class="stat-num" id="statProviders">0</span>
+        <span class="stat-label" data-i18n="statModelsLabel">模型</span>
+      </div>
+      <div class="stat-chip" id="statChangesChip">
+        <span class="stat-dot stat-dot--blue"></span>
+        <span class="stat-num" id="statChanges">0</span>
+        <span class="stat-label" data-i18n="statChangesLabel">更改</span>
+      </div>
     </div>
 
     <div id="loadingView" class="loading-view">
@@ -43,13 +66,15 @@
     </div>
 
     <div id="errorView" class="error-view" style="display:none">
-      <div class="error-icon">!</div>
+      <svg class="state-icon state-icon--error" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       <p id="errorMsg" class="error-text"></p>
       <button id="retryBtn" class="btn btn-secondary" style="margin-top:16px" data-i18n="retry">重试</button>
     </div>
 
     <div id="emptyView" class="empty-view" style="display:none">
-      <p data-i18n="noPlugins">未找到包含模型配置的插件</p>
+      <svg class="state-icon state-icon--empty" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      <p class="empty-title" data-i18n="noPlugins">未找到包含模型配置的插件</p>
+      <p class="empty-hint" data-i18n="noPluginsHint">请确认其他插件的 _conf_schema.json 中使用了 select_provider 配置项</p>
     </div>
 
     <div id="contentView" class="content-view" style="display:none">

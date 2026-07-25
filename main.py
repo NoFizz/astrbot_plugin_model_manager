@@ -1,10 +1,12 @@
-"""astrbot_plugin_model_manager v1.2.1 - Unified Model Manager
+"""astrbot_plugin_model_manager v1.2.2 - Unified Model Manager
 
 Follows official Plugin Pages docs exactly:
   - Route: /{PLUGIN_NAME}/{endpoint}
   - Frontend: bridge.apiGet("{endpoint}")
   - Response: json_response({"status":"ok","data":...}) -> bridge unwraps to data
 """
+
+from __future__ import annotations
 
 import asyncio
 import json
@@ -25,7 +27,7 @@ except ImportError:
         return ""
 
 PLUGIN_NAME = "astrbot_plugin_model_manager"
-PLUGIN_VERSION = "1.2.1"
+PLUGIN_VERSION = "1.2.2"
 MAX_FIELD_PATH_LENGTH = 500
 MAX_SCHEMA_DEPTH = 10
 MAX_BATCH_SIZE = 100
@@ -56,6 +58,7 @@ def _sanitize_plugin_name(name: str, cfg_dir: pathlib.Path | None) -> str | None
 
 
 def _sanitize_field_path(fp: str) -> str | None:
+    """校验字段路径格式，防止路径遍历。合法则原样返回，否则返回 None。"""
     if not fp or len(fp) > MAX_FIELD_PATH_LENGTH:
         return None
     if not _FIELD_PATH_RE.match(fp):
@@ -63,7 +66,8 @@ def _sanitize_field_path(fp: str) -> str | None:
     return fp
 
 
-def _sanitize_value(val):
+def _sanitize_value(val) -> str | None:
+    """校验并规范化用户提交的值。返回字符串或 None（表示非法）。"""
     if val is None:
         return ""
     if isinstance(val, (int, float, bool)):
@@ -81,18 +85,19 @@ def _sanitize_value(val):
     "astrbot_plugin_model_manager",
     "NoFizz",
     "Unified LLM model configuration manager",
-    "1.2.1",
+    "1.2.2",
 )
 class ModelManagerPlugin(Star):
 
-    def __init__(self, context: Context, config: AstrBotConfig = None):
+    def __init__(self, context: Context, config: AstrBotConfig | None = None):
         super().__init__(context)
         self.config = config or {}
-        self._scan_cache: list[dict] | None = None
+        self._scan_cache: tuple[list[dict], list[dict]] | None = None
         self._scan_cache_time: float = 0.0
         self._config_dir_cache: pathlib.Path | None = None
         self._config_dir_resolved: bool = False
         self._scan_lock = asyncio.Lock()
+        self._write_lock = asyncio.Lock()  # 保护配置文件 read-modify-write 操作
         self._terminated = False
 
         context.register_web_api(
@@ -131,9 +136,10 @@ class ModelManagerPlugin(Star):
             ["POST"],
             "Save plugin sort order",
         )
-        logger.info(f"[{PLUGIN_NAME}] v1.2.1 loaded")
+        logger.info(f"[{PLUGIN_NAME}] v1.2.2 loaded")
 
     async def terminate(self):
+        """插件卸载/停用时清理资源。"""
         self._terminated = True
         self._scan_cache = None
         self._scan_cache_time = 0.0
@@ -142,6 +148,7 @@ class ModelManagerPlugin(Star):
         logger.info(f"[{PLUGIN_NAME}] unloaded")
 
     def _get_config_dir(self) -> pathlib.Path | None:
+        """获取 AstrBot 配置目录（带缓存）。"""
         if self._config_dir_resolved and self._config_dir_cache is not None:
             return self._config_dir_cache
         try:
@@ -164,6 +171,7 @@ class ModelManagerPlugin(Star):
         return None
 
     def _get_plugins_dir(self) -> pathlib.Path | None:
+        """推断插件目录位置。"""
         cfg_dir = self._get_config_dir()
         if not cfg_dir:
             return None
@@ -174,6 +182,7 @@ class ModelManagerPlugin(Star):
         return None
 
     def _parse_yaml_top_level_string_field(self, path: pathlib.Path, key: str) -> str:
+        """轻量级 YAML 顶层字段解析（仅适用于简单 key: value 场景）。"""
         if not path.exists():
             return ""
         try:
@@ -201,6 +210,7 @@ class ModelManagerPlugin(Star):
         return dn if dn and dn != dir_name else ""
 
     def _find_provider_fields(self, schema: dict, prefix: str = "", depth: int = 0) -> list[dict]:
+        """递归扫描 _conf_schema.json，提取含 _special=select_provider* 的字段。"""
         if depth > MAX_SCHEMA_DEPTH:
             return []
         results = []
@@ -245,7 +255,8 @@ class ModelManagerPlugin(Star):
                         )
         return results
 
-    def _read_json_file(self, path: pathlib.Path) -> dict | None:
+    def _read_json_file(self, path: pathlib.Path) -> dict | list | None:
+        """读取 JSON 文件，返回解析后的 dict/list 或 None。"""
         if not path.exists():
             return None
         try:
@@ -253,12 +264,15 @@ class ModelManagerPlugin(Star):
             if not text:
                 return None
             data = json.loads(text)
-            return data if isinstance(data, dict) else None
+            if isinstance(data, (dict, list)):
+                return data
+            return None
         except (json.JSONDecodeError, UnicodeDecodeError, OSError) as e:
             logger.warning(f"[{PLUGIN_NAME}] Failed to read {path}: {e}")
             return None
 
-    def _write_json_file(self, path: pathlib.Path, data: dict | list):
+    def _write_json_file(self, path: pathlib.Path, data: dict | list) -> None:
+        """原子写入 JSON 文件（先写临时文件再 rename，防止写入中断导致损坏）。"""
         content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
         tmp = path.with_suffix(f".tmp.{os.getpid()}.{threading.get_ident()}")
         tmp.write_text(content, encoding="utf-8")
@@ -278,11 +292,10 @@ class ModelManagerPlugin(Star):
                     pass
 
     def _get_nested_value(self, data: dict, field_path: str):
+        """根据点分隔路径获取嵌套值，支持 __tpl__ 模板匹配。找不到时返回 _MISSING。"""
         parts = field_path.split(".")
         current = data
-        i = 0
-        while i < len(parts):
-            part = parts[i]
+        for part in parts:
             if part.startswith("__tpl__"):
                 tpl_name = part[len("__tpl__"):]
                 if isinstance(current, list):
@@ -312,10 +325,10 @@ class ModelManagerPlugin(Star):
                     return _MISSING
             else:
                 return _MISSING
-            i += 1
         return current
 
     def _set_nested_value(self, data: dict, field_path: str, value) -> bool:
+        """根据点分隔路径设置嵌套值。成功返回 True，路径不可达返回 False。"""
         parts = field_path.split(".")
         return self._set_recursive(data, parts, 0, value)
 
@@ -371,6 +384,7 @@ class ModelManagerPlugin(Star):
         return False
 
     async def _scan_all_plugins(self) -> tuple[list[dict], list[dict]]:
+        """扫描所有插件的 provider 配置字段（带 TTL 缓存）。返回 (settings, errors)。"""
         now = time.time()
         if self._scan_cache is not None and (now - self._scan_cache_time) < SCAN_CACHE_TTL:
             results, scan_errors = self._scan_cache
@@ -401,7 +415,7 @@ class ModelManagerPlugin(Star):
                                 continue
                             try:
                                 schema = self._read_json_file(schema_file)
-                                if not schema:
+                                if not schema or not isinstance(schema, dict):
                                     continue
                                 fields = self._find_provider_fields(schema)
                                 if not fields:
@@ -414,7 +428,9 @@ class ModelManagerPlugin(Star):
                                 if cfg_dir:
                                     cf = cfg_dir / f"{plugin_name}_config.json"
                                     if cf.exists():
-                                        plugin_config = self._read_json_file(cf) or {}
+                                        raw_cfg = self._read_json_file(cf)
+                                        if isinstance(raw_cfg, dict):
+                                            plugin_config = raw_cfg
                                 for field in fields:
                                     cv = self._get_nested_value(plugin_config, field["field_path"])
                                     if cv is _MISSING:
@@ -443,6 +459,13 @@ class ModelManagerPlugin(Star):
         return results, scan_errors
 
     def _get_all_providers(self) -> list[dict]:
+        """获取所有可用的 LLM 提供商列表。
+
+        采用 3 层降级策略（均非官方公开 API，可能随版本变动）：
+          1. context.get_all_providers() — 较新版本提供的便捷方法
+          2. context.provider_manager.chat_providers — 内部管理器属性
+          3. 直接读取 abconf_*.json 配置文件 — 最底层 fallback
+        """
         try:
             providers = self.context.get_all_providers()
             if not providers:
@@ -485,7 +508,7 @@ class ModelManagerPlugin(Star):
             all_p, seen = [], set()
             for cf in sorted(cfg_dir.glob("abconf_*.json")):
                 data = self._read_json_file(cf)
-                if not data:
+                if not data or not isinstance(data, dict):
                     continue
                 for p in data.get("provider", []):
                     pid = p.get("id", "")
@@ -497,12 +520,13 @@ class ModelManagerPlugin(Star):
         return []
 
     def _update_plugin_config(self, plugin_name: str, field_path: str, new_value: str) -> bool:
+        """读取→修改→写回单个插件配置文件。"""
         cfg_dir = self._get_config_dir()
         if not cfg_dir:
             return False
         cf = cfg_dir / f"{plugin_name}_config.json"
         pc = self._read_json_file(cf)
-        if pc is None:
+        if not isinstance(pc, dict):
             pc = {}
         if not self._set_nested_value(pc, field_path, new_value):
             return False
@@ -553,8 +577,9 @@ class ModelManagerPlugin(Star):
             return error_response("Invalid plugin_name, field_path, or value", status_code=400)
         logger.debug(f"[{PLUGIN_NAME}] Update: {pn}/{fp}")
         try:
-            if self._update_plugin_config(pn, fp, val):
-                return json_response({"status": "ok", "data": {"updated": True}})
+            async with self._write_lock:
+                if self._update_plugin_config(pn, fp, val):
+                    return json_response({"status": "ok", "data": {"updated": True}})
             return error_response("Write failed", status_code=500)
         except Exception as e:
             logger.error(f"[{PLUGIN_NAME}] api_update_provider: {e}", exc_info=True)
@@ -587,26 +612,28 @@ class ModelManagerPlugin(Star):
 
         logger.debug(f"[{PLUGIN_NAME}] Batch update: {sum(len(v) for v in grouped.values())} fields across {len(grouped)} plugins")
         ok_count, fails = 0, []
-        for pn, fields in grouped.items():
-            cf = cfg_dir / f"{pn}_config.json"
-            pc = self._read_json_file(cf) or {}
-            write_needed = False
-            for fp, val in fields:
-                try:
-                    if self._set_nested_value(pc, fp, val):
-                        ok_count += 1
-                        write_needed = True
-                    else:
-                        fails.append(f"{pn}/{fp}: path not reachable")
-                except Exception as e:
-                    fails.append(f"{pn}/{fp}: {e}")
-            if write_needed:
-                try:
-                    self._write_json_file(cf, pc)
-                except Exception as e:
-                    logger.error(f"[{PLUGIN_NAME}] Batch write failed for {pn}: {e}", exc_info=True)
-                    ok_count -= len([fp for fp, _ in fields])
-                    fails.extend(f"{pn}/{fp}: write error ({type(e).__name__})" for fp, _ in fields)
+        async with self._write_lock:
+            for pn, fields in grouped.items():
+                cf = cfg_dir / f"{pn}_config.json"
+                raw = self._read_json_file(cf)
+                pc = raw if isinstance(raw, dict) else {}
+                write_needed = False
+                for fp, val in fields:
+                    try:
+                        if self._set_nested_value(pc, fp, val):
+                            ok_count += 1
+                            write_needed = True
+                        else:
+                            fails.append(f"{pn}/{fp}: path not reachable")
+                    except Exception as e:
+                        fails.append(f"{pn}/{fp}: {e}")
+                if write_needed:
+                    try:
+                        self._write_json_file(cf, pc)
+                    except Exception as e:
+                        logger.error(f"[{PLUGIN_NAME}] Batch write failed for {pn}: {e}", exc_info=True)
+                        ok_count -= len([fp for fp, _ in fields])
+                        fails.extend(f"{pn}/{fp}: write error ({type(e).__name__})" for fp, _ in fields)
 
         return json_response({"status": "ok", "data": {"success": ok_count, "failures": fails}})
 
@@ -617,12 +644,13 @@ class ModelManagerPlugin(Star):
         return None
 
     def _read_sort_order(self) -> list[str]:
+        """读取插件排序列表（去重、去空）。"""
         f = self._get_sort_order_file()
         if f and f.exists():
             data = self._read_json_file(f)
             if isinstance(data, list):
-                seen = set()
-                result = []
+                seen: set[str] = set()
+                result: list[str] = []
                 for x in data:
                     s = str(x).strip()
                     if s and s not in seen:
@@ -631,7 +659,8 @@ class ModelManagerPlugin(Star):
                 return result
         return []
 
-    def _write_sort_order(self, order: list[str]):
+    def _write_sort_order(self, order: list[str]) -> None:
+        """持久化插件排序列表。"""
         f = self._get_sort_order_file()
         if f:
             self._write_json_file(f, order)
@@ -653,8 +682,14 @@ class ModelManagerPlugin(Star):
         order = payload.get("order", [])
         if not isinstance(order, list):
             return error_response("order must be a list", status_code=400)
-        seen = set()
-        order = [x for x in order if isinstance(x, str) and x.strip() and not (x in seen or seen.add(x))]
+        # 去重并保持顺序
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for x in order:
+            if isinstance(x, str) and x.strip() and x not in seen:
+                seen.add(x)
+                deduped.append(x)
+        order = deduped
         try:
             self._write_sort_order(order)
             return json_response({"status": "ok", "data": {"saved": True}})
