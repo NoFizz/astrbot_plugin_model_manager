@@ -197,21 +197,6 @@ class ModelManagerPlugin(Star):
 
     def _read_plugin_display_name(self, plugin_dir: pathlib.Path) -> str:
         dir_name = plugin_dir.name
-        i18n_candidates = [
-            plugin_dir / ".astrbot-plugin" / "i18n" / "zh-CN.json",
-            plugin_dir / ".astrbot-plugin" / "i18n" / "zh_CN.json",
-            plugin_dir / "i18n" / "zh-CN.json",
-            plugin_dir / "i18n" / "zh_CN.json",
-        ]
-        i18n_file = next((f for f in i18n_candidates if f.exists()), None)
-        if i18n_file:
-            try:
-                data = json.loads(i18n_file.read_text(encoding="utf-8-sig"))
-                dn = data.get("metadata", {}).get("display_name", "")
-                if dn and dn != dir_name:
-                    return dn
-            except Exception:
-                pass
         dn = self._parse_yaml_top_level_string_field(plugin_dir / "metadata.yaml", "display_name")
         return dn if dn and dn != dir_name else ""
 
