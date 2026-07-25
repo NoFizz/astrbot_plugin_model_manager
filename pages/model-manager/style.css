@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   Model Manager v1.1 — Claude Code Color Theme
+   Model Manager v1.2.1 — Claude Code Color Theme
    ═══════════════════════════════════════════════════════════ */
 
 :root {
@@ -117,18 +117,6 @@ body {
   flex: 1;
 }
 
-.header-left {
-  flex: 1;
-  display: flex;
-  align-items: center;
-}
-
-.btn-lang {
-  font-size: 12px;
-  padding: 4px 8px;
-  letter-spacing: 0.5px;
-}
-
 .header-title {
   font-size: 18px;
   font-weight: 600;
@@ -244,7 +232,7 @@ body {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: rgba(229, 72, 77, 0.1);
+  background: color-mix(in srgb, var(--error) 10%, transparent);
   color: var(--error);
   display: flex;
   align-items: center;

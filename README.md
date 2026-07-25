@@ -61,7 +61,7 @@ git clone https://github.com/NoFizz/astrbot_plugin_model_manager.git
 
 ## 版本
 
-**当前版本**：v1.1.0
+**当前版本**：v1.2.1
 
 ## 作者
 
