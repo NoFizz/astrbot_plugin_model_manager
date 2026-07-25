@@ -1,4 +1,4 @@
-// Model Manager v1.1 — follows official Plugin Pages docs exactly
+// Model Manager v1.2.1 — follows official Plugin Pages docs exactly
 // NO localStorage (sandboxed iframe forbids it)
 // Theme managed by bridge SDK automatically
 
@@ -9,124 +9,60 @@ const context = await bridge.ready();
 
 // i18n
 const i18n = {
-  zh: {
-    title: "模型管理器",
-    refresh: "刷新",
-    quickSwitch: "快速替换",
-    setAll: "全部设置",
-    save: "保存",
-    scanning: "正在扫描插件配置...",
-    retry: "重试",
-    noPlugins: "未找到包含模型配置的插件",
-    quickSwitchTitle: "快速替换模型",
-    currentModel: "当前模型（要替换的）",
-    selectCurrent: "-- 选择当前模型 --",
-    newModel: "新模型",
-    selectNew: "-- 选择新模型 --",
-    cancel: "取消",
-    switchAll: "替换全部",
-    setAllTitle: "设置所有模型",
-    targetModel: "目标模型",
-    selectModel: "-- 选择模型 --",
-    setAllConfirm: "全部设置",
-    items: " 个配置项",
-    item: " 个配置项",
-    configured: "（已配置）",
-    clearOrNotSet: "-- 清除 --",
-    notSet: "-- 未设置 --",
-    saved: "已保存 ",
-    changes: " 个更改",
-    failed: "，失败 ",
-    switchPreview: '将把所有使用 "',
-    switchPreview2: '" 的字段替换为 "',
-    switchPreview3: '"，共 ',
-    switchPreview4: " 个字段",
-    setAllPreview: "将设置所有 ",
-    setAllPreview2: " 个字段为 ",
-
-    switchSuccess: "已将 ",
-    switchSuccess2: " 个字段从 ",
-
-    switchSuccess3: " 替换为 ",
-
-    setAllSuccess: "已将所有 ",
-    setAllSuccess2: " 个字段设置为 ",
-
-    noFields: "没有需要更新的字段",
-    saveFailed: "保存失败：",
-    switchFailed: "替换失败：",
-    setAllFailed: "设置失败：",
-    sortSaved: "排序已保存",
-    sortFailed: "保存排序失败：",
-    plugins: " 个插件",
-    fields: " 个配置项",
-    models: " 个模型",
-    changesLabel: " 个更改",
-    moveUp: "上移",
-    moveDown: "下移",
-  },
-  en: {
-    title: "Model Manager",
-    refresh: "Refresh",
-    quickSwitch: "Quick Switch",
-    setAll: "Set All",
-    save: "Save",
-    scanning: "Scanning plugin configs...",
-    retry: "Retry",
-    noPlugins: "No plugins with model configuration found",
-    quickSwitchTitle: "Quick Switch Model",
-    currentModel: "Current Model (to replace)",
-    selectCurrent: "-- Select current model --",
-    newModel: "New Model",
-    selectNew: "-- Select new model --",
-    cancel: "Cancel",
-    switchAll: "Switch All",
-    setAllTitle: "Set All Models",
-    targetModel: "Target Model",
-    selectModel: "-- Select model --",
-    setAllConfirm: "Set All",
-    items: " items",
-    item: " item",
-    configured: " (configured)",
-    clearOrNotSet: "-- clear --",
-    notSet: "-- not set --",
-    saved: "Saved ",
-    changes: " changes",
-    failed: ", failed ",
-    switchPreview: 'Will replace "',
-    switchPreview2: '" with "',
-    switchPreview3: '" in ',
-    switchPreview4: " field(s)",
-    setAllPreview: "Will set ALL ",
-    setAllPreview2: " field(s) to ",
-
-    switchSuccess: "Switched ",
-    switchSuccess2: " field(s) from ",
-
-    switchSuccess3: " to ",
-
-    setAllSuccess: "Set all ",
-    setAllSuccess2: " field(s) to ",
-
-    noFields: "No fields to update",
-    saveFailed: "Save failed: ",
-    switchFailed: "Switch failed: ",
-    setAllFailed: "Set all failed: ",
-    sortSaved: "Sort order saved",
-    sortFailed: "Failed to save sort order: ",
-    plugins: " plugins",
-    fields: " fields",
-    models: " models",
-    changesLabel: " changes",
-    moveUp: "Move up",
-    moveDown: "Move down",
-  },
+  title: "模型管理器",
+  refresh: "刷新",
+  quickSwitch: "快速替换",
+  setAll: "全部设置",
+  save: "保存",
+  scanning: "正在扫描插件配置...",
+  retry: "重试",
+  noPlugins: "未找到包含模型配置的插件",
+  quickSwitchTitle: "快速替换模型",
+  currentModel: "当前模型（要替换的）",
+  selectCurrent: "-- 选择当前模型 --",
+  newModel: "新模型",
+  selectNew: "-- 选择新模型 --",
+  cancel: "取消",
+  switchAll: "替换全部",
+  setAllTitle: "设置所有模型",
+  targetModel: "目标模型",
+  selectModel: "-- 选择模型 --",
+  setAllConfirm: "全部设置",
+  items: " 个配置项",
+  item: " 个配置项",
+  configured: "（已配置）",
+  clearOrNotSet: "-- 清除 --",
+  notSet: "-- 未设置 --",
+  saved: "已保存 ",
+  changes: " 个更改",
+  failed: "，失败 ",
+  switchPreview: '将把所有使用 "',
+  switchPreview2: '" 的字段替换为 "',
+  switchPreview3: '"，共 ',
+  switchPreview4: " 个字段",
+  setAllPreview: "将设置所有 ",
+  setAllPreview2: " 个字段为 ",
+  switchSuccess: "已将 ",
+  switchSuccess2: " 个字段从 ",
+  switchSuccess3: " 替换为 ",
+  setAllSuccess: "已将所有 ",
+  setAllSuccess2: " 个字段设置为 ",
+  noFields: "没有需要更新的字段",
+  saveFailed: "保存失败：",
+  switchFailed: "替换失败：",
+  setAllFailed: "设置失败：",
+  sortSaved: "排序已保存",
+  sortFailed: "保存排序失败：",
+  plugins: " 个插件",
+  fields: " 个配置项",
+  models: " 个模型",
+  changesLabel: " 个更改",
+  moveUp: "上移",
+  moveDown: "下移",
 };
 
-let currentLang = "zh";
-
 function t(key) {
-  return i18n[currentLang][key] || key;
+  return i18n[key] || key;
 }
 
 function applyLanguage() {
@@ -140,31 +76,6 @@ function applyLanguage() {
     const key = el.getAttribute("data-i18n");
     el.textContent = t(key);
   });
-}
-
-async function loadLanguage() {
-  try {
-    const data = await bridge.apiGet("language");
-    currentLang = data.lang || "zh";
-  } catch (e) {
-    currentLang = "zh";
-  }
-}
-
-async function saveLanguage(lang) {
-  try {
-    await bridge.apiPost("language", { lang });
-  } catch (e) {
-    // ignore
-  }
-}
-
-function toggleLanguage() {
-  currentLang = currentLang === "zh" ? "en" : "zh";
-  saveLanguage(currentLang);
-  applyLanguage();
-  render();
-  updateStats();
 }
 
 // State
@@ -188,30 +99,23 @@ function showState(s) {
 // Toast
 let toastTimer = null;
 function showToast(msg, type) {
-  const t = $("#toast");
-  t.textContent = msg;
-  t.className = "toast show" + (type ? " toast-" + type : "");
+  const toastEl = $("#toast");
+  toastEl.textContent = msg;
+  toastEl.className = "toast show" + (type ? " toast-" + type : "");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.className = "toast"; }, 3000);
+  toastTimer = setTimeout(() => { toastEl.className = "toast"; }, 3000);
 }
 
 // Load data
 async function loadAll() {
   showState("loading");
   try {
-    await loadLanguage();
     applyLanguage();
 
     // bridge.apiGet resolves to the "data" field automatically
     const settingsData = await bridge.apiGet("settings");
     allSettings = settingsData.settings || [];
-
-    try {
-      const provData = await bridge.apiGet("providers");
-      providers = provData.providers || [];
-    } catch (e) {
-      providers = [];
-    }
+    providers = settingsData.providers || [];
 
     try {
       const sortData = await bridge.apiGet("sort-order");
@@ -398,7 +302,7 @@ function buildRow(s) {
   const cur = s.current_value || "";
 
   const emptyOpt = document.createElement("option");
-  emptyOpt.value = "";
+  emptyOpt.value = "__CLEAR__";
   emptyOpt.textContent = cur ? t("clearOrNotSet") : t("notSet");
   sel.appendChild(emptyOpt);
 
@@ -420,8 +324,9 @@ function buildRow(s) {
 
   sel.addEventListener("change", () => {
     const v = sel.value;
-    if (v !== cur) {
-      changes.set(key, { plugin_name: s.plugin_name, field_path: s.field_path, value: v });
+    const actualValue = v === "__CLEAR__" ? "" : v;
+    if (actualValue !== cur) {
+      changes.set(key, { plugin_name: s.plugin_name, field_path: s.field_path, value: actualValue });
       sel.classList.add("changed");
     } else {
       changes.delete(key);
@@ -471,7 +376,6 @@ async function saveAll() {
 $("#refreshBtn").addEventListener("click", loadAll);
 $("#retryBtn").addEventListener("click", loadAll);
 $("#saveBtn").addEventListener("click", saveAll);
-$("#langBtn").addEventListener("click", toggleLanguage);
 
 // Quick Switch Dialog
 const quickSwitchDialog = $("#quickSwitchDialog");
