@@ -1,10 +1,18 @@
-# 模型管理器 (Model Manager)
+# astrbot_plugin_model_manager
 
-**在一个页面里，统一管理所有插件的 LLM 模型配置。**
+<p align="center">
+  <img src="logo.png" width="128" height="128" alt="astrbot_plugin_model_manager logo">
+</p>
 
-当你安装了很多 AstrBot 插件，每个插件都有自己的"模型选择"配置项时，逐个进插件设置里改模型会非常麻烦。这个插件把所有插件的模型配置项集中到一个页面，让你一眼看清、一键修改，**无需改动任何插件的代码**。
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.2.2-blue" alt="version">
+  <img src="https://img.shields.io/badge/license-AGPL--3.0-green" alt="license">
+  <img src="https://img.shields.io/badge/AstrBot->=4.26.0-orange" alt="AstrBot version">
+</p>
 
-## 它能做什么
+统一管理所有插件的 LLM 模型配置，支持快速替换、全部设置、插件排序、中英文切换。
+
+## 功能特性
 
 - **集中展示**：自动扫描所有已安装插件的模型配置项，在一个页面全部列出，并显示当前分配的模型
 - **直接修改**：在每个下拉框里选择模型，批量保存
@@ -15,28 +23,37 @@
 
 ## 安装
 
-### 方法一：插件市场（推荐）
+### 方法一：通过 AstrBot WebUI 安装（推荐）
 
-打开 AstrBot WebUI → 进入**插件市场** → 搜索「**模型管理器**」→ 点击安装。
+1. 打开 AstrBot WebUI → 插件管理 → 新增插件。
+2. 选择 **从 GitHub 安装**。
+3. 填入仓库地址：
+   ```
+   https://github.com/NoFizz/astrbot_plugin_model_manager
+   ```
+4. 等待安装完成，确认插件已启用。
 
-### 方法二：GitHub 安装
+### 方法二：手动安装
 
-在 WebUI 的插件管理页面选择「**从 GitHub 安装**」，填入仓库地址：
+1. 将本仓库克隆或下载到 AstrBot 的插件目录：
+   ```bash
+   cd AstrBot/data/plugins
+   git clone https://github.com/NoFizz/astrbot_plugin_model_manager.git
+   ```
+2. 在 AstrBot WebUI 中重载插件，或重启 AstrBot。
 
-```
-https://github.com/NoFizz/astrbot_plugin_model_manager
-```
+### 安装后检查
 
-或手动克隆到插件目录：
+- 在 WebUI 插件管理中确认插件状态为"已启用"且无报错。
+- 进入插件详情页，确认 Model Manager 页面可正常打开。
 
-```bash
-cd AstrBot/data/plugins
-git clone https://github.com/NoFizz/astrbot_plugin_model_manager.git
-```
+## 配置说明
 
-安装后在插件管理页面启用即可。
+本插件无需额外配置，安装即用。所有操作通过 WebUI Page 完成。
 
-## 使用
+**工作原理**：插件会自动扫描所有已安装插件的 `_conf_schema.json`，找出带有 `_special: select_provider*` 标记的配置项（即模型选择器），将它们集中展示在 Model Manager 页面中。修改后直接写入对应插件的配置文件，无需改动任何插件代码。
+
+## 使用示例
 
 1. 进入本插件的详情页，打开 **Model Manager** 页面
 2. 页面会自动扫描并列出所有插件的模型配置项
@@ -59,10 +76,12 @@ git clone https://github.com/NoFizz/astrbot_plugin_model_manager.git
 
 界面语言跟随 AstrBot WebUI 的全局语言设置。在 WebUI **设置** 中切换语言后，本页面会自动切换，无需刷新。
 
-## 作者
-
-NoFizz
-
 ## 许可证
 
-AGPL-3.0
+本项目基于 [AGPL-3.0](LICENSE) 许可证开源。
+
+## 作者
+
+**NoFizz** · [GitHub](https://github.com/NoFizz)
+
+如遇问题或有功能建议，欢迎提交 [Issue](https://github.com/NoFizz/astrbot_plugin_model_manager/issues)。
