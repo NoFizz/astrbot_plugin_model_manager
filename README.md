@@ -1,4 +1,4 @@
-# astrbot_plugin_model_manager
+<h1 align="center">模型管理器/astrbot_plugin_model_manager</h1>
 
 <p align="center">
   <img src="logo.png" width="128" height="128" alt="astrbot_plugin_model_manager logo">
@@ -39,9 +39,17 @@
 3. 在插件市场中搜索 **模型管理器**（`astrbot_plugin_model_manager`），点击安装。
 4. 等待安装完成，确认插件已启用。
 
-> 后续更新也可在插件市场中一键完成。
+### 方法二：从 GitHub 安装
 
-### 方法二：手动安装
+1. 打开 AstrBot WebUI → 插件管理 → 新增插件。
+2. 选择 **从 GitHub 安装**。
+3. 填入仓库地址：
+   ```
+   https://github.com/NoFizz/astrbot_plugin_model_manager
+   ```
+4. 等待安装完成，确认插件已启用。
+
+### 方法三：手动安装
 
 1. 将本仓库克隆或下载到 AstrBot 的插件目录：
    ```bash
