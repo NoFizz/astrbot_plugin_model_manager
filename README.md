@@ -5,12 +5,19 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.2.2-blue" alt="version">
+  <img src="https://img.shields.io/badge/version-1.2.3-blue" alt="version">
   <img src="https://img.shields.io/badge/license-AGPL--3.0-green" alt="license">
   <img src="https://img.shields.io/badge/AstrBot->=4.26.0-orange" alt="AstrBot version">
 </p>
 
 统一管理所有插件的 LLM 模型配置，支持快速替换、全部设置、插件排序、中英文切换。
+
+## 界面预览
+
+<p align="center">
+  <img src="浅色模式.png" alt="浅色模式" width="49%">
+  <img src="深色模式.png" alt="深色模式" width="49%">
+</p>
 
 ## 功能特性
 
@@ -23,15 +30,16 @@
 
 ## 安装
 
-### 方法一：通过 AstrBot WebUI 安装（推荐）
+### 方法一：通过插件市场安装（推荐）
 
-1. 打开 AstrBot WebUI → 插件管理 → 新增插件。
-2. 选择 **从 GitHub 安装**。
-3. 填入仓库地址：
-   ```
-   https://github.com/NoFizz/astrbot_plugin_model_manager
-   ```
+1. 打开 AstrBot WebUI → 插件管理 → 插件市场。
+2. 添加插件源（如尚未添加）：
+   - 源名称：`AstrBot Official Plugin Market`
+   - 源地址：`https://cloud-test.astrbot.app/api/v1/market/plugins.json`
+3. 在插件市场中搜索 **模型管理器**（`astrbot_plugin_model_manager`），点击安装。
 4. 等待安装完成，确认插件已启用。
+
+> 后续更新也可在插件市场中一键完成。
 
 ### 方法二：手动安装
 
