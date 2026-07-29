@@ -1,4 +1,4 @@
-"""astrbot_plugin_model_manager v1.2.2 - Unified Model Manager
+"""astrbot_plugin_model_manager v1.2.3 - Unified Model Manager
 
 Follows official Plugin Pages docs exactly:
   - Route: /{PLUGIN_NAME}/{endpoint}
@@ -27,7 +27,7 @@ except ImportError:
         return ""
 
 PLUGIN_NAME = "astrbot_plugin_model_manager"
-PLUGIN_VERSION = "1.2.2"
+PLUGIN_VERSION = "1.2.3"
 MAX_FIELD_PATH_LENGTH = 500
 MAX_SCHEMA_DEPTH = 10
 MAX_BATCH_SIZE = 100
@@ -85,7 +85,7 @@ def _sanitize_value(val) -> str | None:
     "astrbot_plugin_model_manager",
     "NoFizz",
     "Unified LLM model configuration manager",
-    "1.2.2",
+    "1.2.3",
 )
 class ModelManagerPlugin(Star):
 
@@ -136,7 +136,7 @@ class ModelManagerPlugin(Star):
             ["POST"],
             "Save plugin sort order",
         )
-        logger.info(f"[{PLUGIN_NAME}] v1.2.2 loaded")
+        logger.info(f"[{PLUGIN_NAME}] v1.2.3 loaded")
 
     async def terminate(self):
         """插件卸载/停用时清理资源。"""
@@ -579,6 +579,7 @@ class ModelManagerPlugin(Star):
         try:
             async with self._write_lock:
                 if self._update_plugin_config(pn, fp, val):
+                    self._scan_cache = None  # 写入后使缓存失效
                     return json_response({"status": "ok", "data": {"updated": True}})
             return error_response("Write failed", status_code=500)
         except Exception as e:
@@ -612,6 +613,7 @@ class ModelManagerPlugin(Star):
 
         logger.debug(f"[{PLUGIN_NAME}] Batch update: {sum(len(v) for v in grouped.values())} fields across {len(grouped)} plugins")
         ok_count, fails = 0, []
+        written = False
         async with self._write_lock:
             for pn, fields in grouped.items():
                 cf = cfg_dir / f"{pn}_config.json"
@@ -630,10 +632,13 @@ class ModelManagerPlugin(Star):
                 if write_needed:
                     try:
                         self._write_json_file(cf, pc)
+                        written = True
                     except Exception as e:
                         logger.error(f"[{PLUGIN_NAME}] Batch write failed for {pn}: {e}", exc_info=True)
                         ok_count -= len([fp for fp, _ in fields])
                         fails.extend(f"{pn}/{fp}: write error ({type(e).__name__})" for fp, _ in fields)
+            if written:
+                self._scan_cache = None  # 写入后使缓存失效
 
         return json_response({"status": "ok", "data": {"success": ok_count, "failures": fails}})
 

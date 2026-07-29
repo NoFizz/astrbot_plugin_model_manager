@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   Model Manager v1.2.2 — Claude Code Color Theme
+   Model Manager v1.2.3 — Claude Code Color Theme
    ═══════════════════════════════════════════════════════════ */
 
 :root {
@@ -158,18 +158,6 @@ body {
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.02em;
-}
-
-.header-version {
-  font-size: 11px;
-  font-weight: 600;
-  font-family: var(--mono);
-  color: var(--badge-text);
-  background: var(--badge-bg);
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  padding: 2px 8px;
-  line-height: 1.4;
 }
 
 .header-subtitle {

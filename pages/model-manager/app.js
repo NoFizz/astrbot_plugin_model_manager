@@ -1,4 +1,4 @@
-// Model Manager v1.2.2 — follows official Plugin Pages docs exactly
+// Model Manager v1.2.3 — follows official Plugin Pages docs exactly
 // NO localStorage (sandboxed iframe forbids it)
 // Theme managed by bridge SDK automatically
 // i18n via official bridge.t() + onContext() API
@@ -182,11 +182,6 @@ async function loadAll() {
     const settingsData = await bridge.apiGet("settings");
     allSettings = settingsData.settings || [];
     providers = settingsData.providers || [];
-
-    // 显示后端返回的版本号
-    if (settingsData.version) {
-      $("#headerVersion").textContent = "v" + settingsData.version;
-    }
 
     try {
       const sortData = await bridge.apiGet("sort-order");
@@ -442,6 +437,8 @@ async function saveAll() {
       fails.length === 0 ? "success" : "error"
     );
     await loadAll();
+    setBtnLoading(saveBtn, false);
+    updateSaveBtn();
   } catch (err) {
     showToast(t("saveFailed") + err.message, "error");
     setBtnLoading(saveBtn, false);
@@ -537,6 +534,8 @@ async function confirmQuickSwitch() {
     );
     closeQuickSwitch();
     await loadAll();
+    setBtnLoading(dialogConfirmBtn, false);
+    dialogConfirmBtn.disabled = true;
   } catch (err) {
     showToast(t("switchFailed") + err.message, "error");
     setBtnLoading(dialogConfirmBtn, false);
@@ -614,6 +613,8 @@ async function confirmSetAll() {
     );
     closeSetAll();
     await loadAll();
+    setBtnLoading(setAllConfirmBtn, false);
+    setAllConfirmBtn.disabled = true;
   } catch (err) {
     showToast(t("setAllFailed") + err.message, "error");
     setBtnLoading(setAllConfirmBtn, false);
