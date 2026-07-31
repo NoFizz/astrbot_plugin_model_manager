@@ -2,20 +2,19 @@
   "metadata": {
     "display_name": "Model Manager",
     "short_desc": "Manage LLM model assignments for all plugins in one place",
-    "desc": "Unified management of LLM model configuration for all plugins. Supports quick switch, set all, plugin sorting, and i18n."
+    "desc": "Unified management of LLM model configurations across all plugins — supports single replace, one-click set, plugin sorting, sidebar navigation, and i18n."
   },
   "pages": {
     "model-manager": {
       "title": "Model Manager",
-      "description": "Unified management of LLM model configuration for all plugins",
       "refresh": "Refresh",
-      "quickSwitch": "Quick Switch",
+      "quickSwitch": "Single Replace",
       "setAll": "Set All",
       "save": "Save",
       "scanning": "Scanning plugin configs...",
       "retry": "Retry",
       "noPlugins": "No plugins with model configuration found",
-      "quickSwitchTitle": "Quick Switch Model",
+      "quickSwitchTitle": "Single Replace Model",
       "currentModel": "Current model (to replace)",
       "selectCurrent": "-- Select current model --",
       "newModel": "New model",
@@ -26,8 +25,6 @@
       "targetModel": "Target model",
       "selectModel": "-- Select model --",
       "setAllConfirm": "Set All",
-      "items": " items",
-      "item": " item",
       "configured": " (configured)",
       "clearOrNotSet": "-- Clear --",
       "notSet": "-- Not set --",
@@ -51,20 +48,17 @@
       "setAllFailed": "Set failed: ",
       "sortSaved": "Sort order saved",
       "sortFailed": "Save sort order failed: ",
-      "plugins": " plugins",
-      "fields": " fields",
-      "models": " models",
-      "changesLabel": " changes",
       "moveUp": "Move up",
       "moveDown": "Move down",
-      "subtitle": "Manage model assignments for all plugins",
       "noPluginsHint": "Make sure other plugins use select_provider fields in their _conf_schema.json",
-      "statPluginsLabel": "Plugins",
-      "statFieldsLabel": "Fields",
-      "statModelsLabel": "Models",
-      "statChangesLabel": "Changes",
       "unsetValue": "(unset)",
-      "clearedValue": "(cleared)"
+      "clearedValue": "(cleared)",
+      "sidebarTitle": "Model Config Plugins",
+      "sidebarToggle": "Sidebar",
+      "sidebarClose": "Close",
+      "hidePlugin": "Hide plugin",
+      "showPlugin": "Show plugin",
+      "dragHint": "Drag to reorder"
     }
   }
 }

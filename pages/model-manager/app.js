@@ -1,4 +1,4 @@
-// Model Manager v1.2.3 — follows official Plugin Pages docs exactly
+// Model Manager v1.2.4 — follows official Plugin Pages docs exactly
 // NO localStorage (sandboxed iframe forbids it)
 // Theme managed by bridge SDK automatically
 // i18n via official bridge.t() + onContext() API
@@ -12,13 +12,13 @@ const context = await bridge.ready();
 const enFallback = {
   title: "Model Manager",
   refresh: "Refresh",
-  quickSwitch: "Quick Switch",
+  quickSwitch: "Single Replace",
   setAll: "Set All",
   save: "Save",
   scanning: "Scanning plugin configs...",
   retry: "Retry",
   noPlugins: "No plugins with model configuration found",
-  quickSwitchTitle: "Quick Switch Model",
+  quickSwitchTitle: "Single Replace Model",
   currentModel: "Current model (to replace)",
   selectCurrent: "-- Select current model --",
   newModel: "New model",
@@ -29,8 +29,6 @@ const enFallback = {
   targetModel: "Target model",
   selectModel: "-- Select model --",
   setAllConfirm: "Set All",
-  items: " items",
-  item: " item",
   configured: " (configured)",
   clearOrNotSet: "-- Clear --",
   notSet: "-- Not set --",
@@ -54,20 +52,17 @@ const enFallback = {
   setAllFailed: "Set failed: ",
   sortSaved: "Sort order saved",
   sortFailed: "Save sort order failed: ",
-  plugins: " plugins",
-  fields: " fields",
-  models: " models",
-  changesLabel: " changes",
   moveUp: "Move up",
   moveDown: "Move down",
-  subtitle: "Manage model assignments for all plugins",
   noPluginsHint: "Make sure other plugins use select_provider fields in their _conf_schema.json",
-  statPluginsLabel: "Plugins",
-  statFieldsLabel: "Fields",
-  statModelsLabel: "Models",
-  statChangesLabel: "Changes",
   unsetValue: "(unset)",
   clearedValue: "(cleared)",
+  sidebarTitle: "Model Config Plugins",
+  sidebarToggle: "Sidebar",
+  sidebarClose: "Close",
+  hidePlugin: "Hide plugin",
+  showPlugin: "Show plugin",
+  dragHint: "Drag to reorder",
 };
 
 /** 使用官方 bridge.t() 获取翻译，缺失时回退到英文 */
@@ -87,6 +82,12 @@ function applyLanguage() {
     const key = el.getAttribute("data-i18n");
     el.textContent = t(key);
   });
+
+  // 图标按钮 title（无文本节点，data-i18n 机制覆盖不到）
+  const toggleBtn = document.querySelector("#sidebarToggleBtn");
+  if (toggleBtn) toggleBtn.title = t("sidebarToggle");
+  const closeBtn = document.querySelector("#sidebarCloseBtn");
+  if (closeBtn) closeBtn.title = t("sidebarClose");
 }
 
 // State
@@ -94,6 +95,9 @@ let allSettings = [];
 let providers = [];
 let sortOrder = [];
 const changes = new Map();
+// 侧栏隐藏的插件集合（仅会话内有效：沙箱 iframe 禁用 localStorage，且后端无对应持久化端点）
+const hiddenPlugins = new Set();
+let sidebarOpen = false;
 
 // DOM helpers
 const $ = (s) => document.querySelector(s);
@@ -144,7 +148,6 @@ function showState(s) {
   $("#errorView").style.display = s === "error" ? "flex" : "none";
   $("#emptyView").style.display = s === "empty" ? "flex" : "none";
   $("#contentView").style.display = s === "content" ? "block" : "none";
-  $("#statsBar").style.display = s === "content" ? "flex" : "none";
 }
 
 // Toast
@@ -193,12 +196,18 @@ async function loadAll() {
     changes.clear();
     updateSaveBtn();
 
+    // 清理已不存在插件的隐藏标记
+    const pluginNames = new Set(allSettings.map((s) => s.plugin_name));
+    for (const name of [...hiddenPlugins]) {
+      if (!pluginNames.has(name)) hiddenPlugins.delete(name);
+    }
+
     if (allSettings.length === 0) {
+      renderSidebar();
       showState("empty");
       return;
     }
     render();
-    updateStats();
     showState("content");
   } catch (err) {
     $("#errorMsg").textContent = err.message || "Failed to load";
@@ -219,11 +228,13 @@ function getDisplayName(s) {
 function render() {
   const groups = groupByPlugin();
   const sortedKeys = getSortedPluginKeys(groups);
+  // 主视图跳过被侧栏隐藏的插件
+  const visibleKeys = sortedKeys.filter((k) => !hiddenPlugins.has(k));
 
   const container = $("#pluginGroups");
   container.innerHTML = "";
 
-  sortedKeys.forEach((pluginName, index) => {
+  visibleKeys.forEach((pluginName, index) => {
     const settings = groups.get(pluginName);
     const card = document.createElement("div");
     card.className = "plugin-card";
@@ -246,7 +257,7 @@ function render() {
     downBtn.className = "sort-btn";
     downBtn.innerHTML = "&#9660;";
     downBtn.title = t("moveDown");
-    downBtn.disabled = index === sortedKeys.length - 1;
+    downBtn.disabled = index === visibleKeys.length - 1;
     downBtn.addEventListener("click", () => movePlugin(pluginName, 1));
 
     sortBtns.append(upBtn, downBtn);
@@ -255,11 +266,7 @@ function render() {
     title.className = "plugin-card-title";
     title.textContent = getDisplayName(settings[0]);
 
-    const badge = document.createElement("div");
-    badge.className = "plugin-card-badge";
-    badge.textContent = settings.length + (settings.length === 1 ? t("item") : t("items"));
-
-    header.append(sortBtns, title, badge);
+    header.append(sortBtns, title);
 
     const body = document.createElement("div");
     body.className = "plugin-card-body";
@@ -268,22 +275,29 @@ function render() {
     card.append(header, body);
     container.appendChild(card);
   });
+
+  // 侧栏与主视图共享同一数据源，主视图重绘时同步重绘侧栏
+  renderSidebar();
 }
 
 async function movePlugin(pluginName, direction) {
   const groups = groupByPlugin();
   const currentOrder = getSortedPluginKeys(groups);
 
-  const currentIndex = currentOrder.indexOf(pluginName);
-  const newIndex = currentIndex + direction;
+  // 在"可见插件"序列中寻找相邻目标，避免与隐藏插件交换导致视觉上无变化
+  const visible = currentOrder.filter((k) => !hiddenPlugins.has(k));
+  const vIndex = visible.indexOf(pluginName);
+  const vTarget = vIndex + direction;
+  if (vIndex < 0 || vTarget < 0 || vTarget >= visible.length) return;
 
-  if (newIndex < 0 || newIndex >= currentOrder.length) return;
+  const i = currentOrder.indexOf(pluginName);
+  const j = currentOrder.indexOf(visible[vTarget]);
 
   // 保存旧顺序用于失败回滚
   const prevOrder = [...sortOrder];
 
   // Swap
-  [currentOrder[currentIndex], currentOrder[newIndex]] = [currentOrder[newIndex], currentOrder[currentIndex]];
+  [currentOrder[i], currentOrder[j]] = [currentOrder[j], currentOrder[i]];
 
   sortOrder = currentOrder;
   render();
@@ -392,7 +406,6 @@ function buildRow(s) {
       diff.style.display = "none";
     }
     updateSaveBtn();
-    updateStats();
   });
 
   wrap.appendChild(sel);
@@ -400,16 +413,7 @@ function buildRow(s) {
   return row;
 }
 
-// Stats & Save
-function updateStats() {
-  const pn = new Set(allSettings.map((s) => s.plugin_name));
-  $("#statPlugins").textContent = pn.size;
-  $("#statFields").textContent = allSettings.length;
-  $("#statProviders").textContent = providers.length;
-  $("#statChanges").textContent = changes.size;
-  $("#statChangesChip").classList.toggle("stat-chip--active", changes.size > 0);
-}
-
+// Save
 function updateSaveBtn() {
   const saveBtn = $("#saveBtn");
   saveBtn.disabled = changes.size === 0;
@@ -445,6 +449,171 @@ async function saveAll() {
     updateSaveBtn();
   }
 }
+
+// ── Sidebar（插件导航侧栏：跳转 / 隐藏 / 拖拽排序）─────────────
+const EYE_SVG =
+  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF_SVG =
+  '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
+// 创建侧栏 DOM（默认隐藏，通过 .open / .show class 控制）
+const sidebarBackdrop = document.createElement("div");
+sidebarBackdrop.id = "sidebarBackdrop";
+sidebarBackdrop.className = "sidebar-backdrop";
+
+const sidebarEl = document.createElement("aside");
+sidebarEl.id = "sidebar";
+sidebarEl.className = "sidebar";
+sidebarEl.innerHTML =
+  '<div class="sidebar-header">' +
+  '<h2 class="sidebar-title" data-i18n="sidebarTitle">模型配置插件</h2>' +
+  '<button id="sidebarCloseBtn" class="dialog-close">&times;</button>' +
+  "</div>" +
+  '<div id="sidebarList" class="sidebar-list"></div>';
+
+document.body.append(sidebarBackdrop, sidebarEl);
+
+function openSidebar() {
+  sidebarOpen = true;
+  sidebarEl.classList.add("open");
+  sidebarBackdrop.classList.add("show");
+}
+
+function closeSidebar() {
+  sidebarOpen = false;
+  sidebarEl.classList.remove("open");
+  sidebarBackdrop.classList.remove("show");
+}
+
+function toggleSidebar() {
+  if (sidebarOpen) closeSidebar();
+  else openSidebar();
+}
+
+/** 切换插件隐藏状态并同步主视图 + 侧栏 */
+function toggleHidden(pluginName) {
+  if (hiddenPlugins.has(pluginName)) hiddenPlugins.delete(pluginName);
+  else hiddenPlugins.add(pluginName);
+  render();
+}
+
+/** 点击侧栏项名称：平滑滚动主视图到对应插件卡片 */
+function jumpToPlugin(pluginName, item) {
+  const card = document.querySelector(
+    '.plugin-card[data-plugin="' + CSS.escape(pluginName) + '"]'
+  );
+  if (!card) return; // 已隐藏的插件在主视图无卡片，不跳转
+  card.scrollIntoView({ behavior: "smooth", block: "start" });
+  // 短暂高亮被点击的侧栏项
+  item.classList.add("sidebar-item--active");
+  setTimeout(() => item.classList.remove("sidebar-item--active"), 800);
+}
+
+// 拖拽排序状态
+let dragSrcEl = null;
+
+/** 拖拽结束后：按侧栏 DOM 顺序提交新的全局排序并持久化 */
+async function commitSidebarOrder() {
+  const list = $("#sidebarList");
+  const newOrder = Array.from(list.children).map((el) => el.dataset.plugin);
+  const currentOrder = getSortedPluginKeys(groupByPlugin());
+  if (newOrder.join("\u0000") === currentOrder.join("\u0000")) return; // 顺序未变化
+
+  const prevOrder = [...sortOrder];
+  sortOrder = newOrder;
+  render();
+
+  try {
+    await bridge.apiPost("save-sort-order", { order: sortOrder });
+    showToast(t("sortSaved"), "success");
+  } catch (err) {
+    sortOrder = prevOrder;
+    render();
+    showToast(t("sortFailed") + err.message, "error");
+  }
+}
+
+/** 重绘侧栏列表（与主视图共享 allSettings + sortOrder + hiddenPlugins） */
+function renderSidebar() {
+  const list = $("#sidebarList");
+  if (!list) return;
+  list.innerHTML = "";
+
+  const groups = groupByPlugin();
+  const sortedKeys = getSortedPluginKeys(groups);
+
+  for (const pluginName of sortedKeys) {
+    const settings = groups.get(pluginName);
+    const isHidden = hiddenPlugins.has(pluginName);
+
+    const item = document.createElement("div");
+    item.className = "sidebar-item" + (isHidden ? " sidebar-item--hidden" : "");
+    item.dataset.plugin = pluginName;
+    item.draggable = true;
+
+    const handle = document.createElement("span");
+    handle.className = "sidebar-item-handle";
+    handle.title = t("dragHint");
+    handle.textContent = "\u2261"; // ≡
+
+    const name = document.createElement("span");
+    name.className = "sidebar-item-name";
+    name.textContent = getDisplayName(settings[0]);
+
+    const eyeBtn = document.createElement("button");
+    eyeBtn.className = "sidebar-item-eye";
+    eyeBtn.title = isHidden ? t("showPlugin") : t("hidePlugin");
+    eyeBtn.innerHTML = isHidden ? EYE_OFF_SVG : EYE_SVG;
+    eyeBtn.addEventListener("click", (e) => {
+      e.stopPropagation(); // 不触发跳转
+      toggleHidden(pluginName);
+    });
+
+    item.append(handle, name, eyeBtn);
+
+    // 点击名称区域跳转（眼睛/拖拽手柄除外）
+    item.addEventListener("click", (e) => {
+      if (e.target.closest(".sidebar-item-eye") || e.target.closest(".sidebar-item-handle")) return;
+      jumpToPlugin(pluginName, item);
+    });
+
+    // 拖拽排序（HTML5 DnD，拖动过程中实时移动 DOM 提供预览）
+    item.addEventListener("dragstart", (e) => {
+      dragSrcEl = item;
+      item.classList.add("sidebar-item--dragging");
+      e.dataTransfer.effectAllowed = "move";
+      try {
+        e.dataTransfer.setData("text/plain", pluginName);
+      } catch (_) {
+        /* 某些环境不允许 setData，忽略 */
+      }
+    });
+
+    item.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (!dragSrcEl || dragSrcEl === item) return;
+      const rect = item.getBoundingClientRect();
+      const insertBefore = e.clientY - rect.top < rect.height / 2;
+      if (insertBefore) list.insertBefore(dragSrcEl, item);
+      else list.insertBefore(dragSrcEl, item.nextSibling);
+    });
+
+    item.addEventListener("drop", (e) => e.preventDefault());
+
+    item.addEventListener("dragend", () => {
+      item.classList.remove("sidebar-item--dragging");
+      dragSrcEl = null;
+      commitSidebarOrder();
+    });
+
+    list.appendChild(item);
+  }
+}
+
+$("#sidebarToggleBtn").addEventListener("click", toggleSidebar);
+$("#sidebarCloseBtn").addEventListener("click", closeSidebar);
+sidebarBackdrop.addEventListener("click", closeSidebar);
 
 // Events
 $("#refreshBtn").addEventListener("click", loadAll);
@@ -633,6 +802,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     if (quickSwitchDialog.style.display !== "none") closeQuickSwitch();
     if (setAllDialog.style.display !== "none") closeSetAll();
+    if (sidebarOpen) closeSidebar();
   }
 });
 quickSwitchDialog.addEventListener("click", (e) => {
@@ -646,8 +816,9 @@ setAllDialog.addEventListener("click", (e) => {
 bridge.onContext(() => {
   applyLanguage();
   if (allSettings.length > 0) {
-    render();
-    updateStats();
+    render(); // render() 内部会同步重绘侧栏
+  } else {
+    renderSidebar();
   }
 });
 
