@@ -1,4 +1,4 @@
-"""astrbot_plugin_model_manager v1.2.3 - Unified Model Manager
+"""astrbot_plugin_model_manager v1.2.4 - Unified Model Manager
 
 Follows official Plugin Pages docs exactly:
   - Route: /{PLUGIN_NAME}/{endpoint}
@@ -27,7 +27,7 @@ except ImportError:
         return ""
 
 PLUGIN_NAME = "astrbot_plugin_model_manager"
-PLUGIN_VERSION = "1.2.3"
+PLUGIN_VERSION = "1.2.4"
 MAX_FIELD_PATH_LENGTH = 500
 MAX_SCHEMA_DEPTH = 10
 MAX_BATCH_SIZE = 100
@@ -85,7 +85,7 @@ def _sanitize_value(val) -> str | None:
     "astrbot_plugin_model_manager",
     "NoFizz",
     "Unified LLM model configuration manager",
-    "1.2.3",
+    "1.2.4",
 )
 class ModelManagerPlugin(Star):
 
@@ -136,7 +136,7 @@ class ModelManagerPlugin(Star):
             ["POST"],
             "Save plugin sort order",
         )
-        logger.info(f"[{PLUGIN_NAME}] v1.2.3 loaded")
+        logger.info(f"[{PLUGIN_NAME}] v1.2.4 loaded")
 
     async def terminate(self):
         """插件卸载/停用时清理资源。"""
@@ -620,10 +620,12 @@ class ModelManagerPlugin(Star):
                 raw = self._read_json_file(cf)
                 pc = raw if isinstance(raw, dict) else {}
                 write_needed = False
+                plugin_ok = 0  # 该插件实际成功设置的字段数，用于写入失败时精确回退
                 for fp, val in fields:
                     try:
                         if self._set_nested_value(pc, fp, val):
                             ok_count += 1
+                            plugin_ok += 1
                             write_needed = True
                         else:
                             fails.append(f"{pn}/{fp}: path not reachable")
@@ -635,7 +637,9 @@ class ModelManagerPlugin(Star):
                         written = True
                     except Exception as e:
                         logger.error(f"[{PLUGIN_NAME}] Batch write failed for {pn}: {e}", exc_info=True)
-                        ok_count -= len([fp for fp, _ in fields])
+                        # 仅回退该插件实际成功设置的字段数（非全部字段数），
+                        # 因为部分字段可能在 _set_nested_value 阶段已失败、未计入 ok_count
+                        ok_count -= plugin_ok
                         fails.extend(f"{pn}/{fp}: write error ({type(e).__name__})" for fp, _ in fields)
             if written:
                 self._scan_cache = None  # 写入后使缓存失效
