@@ -1,4 +1,4 @@
-// Model Manager v1.4.0 — follows official Plugin Pages docs exactly
+// Model Manager v1.4.1 — follows official Plugin Pages docs exactly
 // NO localStorage (sandboxed iframe forbids it)
 // Theme managed by bridge SDK automatically
 // i18n via official bridge.t() + onContext() API
