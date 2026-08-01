@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.4.0-blue?style=flat" alt="version">
+  <img src="https://img.shields.io/badge/version-1.4.1-blue?style=flat" alt="version">
   <img src="https://img.shields.io/badge/license-AGPL--3.0-green?style=flat" alt="license">
   <img src="https://img.shields.io/badge/python-3.10+-blue?style=flat" alt="python">
   <img src="https://img.shields.io/badge/AstrBot->=4.26.0-orange?style=flat" alt="AstrBot version">
@@ -16,6 +16,12 @@
 <p align="center">
   <img src="https://count.getloli.com/@astrbot_plugin_model_manager?theme=moebooru" alt="Moe Counter">
 </p>
+
+## 界面预览
+
+| 浅色模式 | 深色模式 |
+|---|---|
+| ![浅色模式](screenshots/light-mode.png) | ![深色模式](screenshots/dark-mode.png) |
 
 ## 功能特性
 
@@ -32,12 +38,6 @@
 - **两行标题**：插件卡片与侧边栏均采用两行展示——第一行显示名称、第二行完整插件 ID，信息一目了然
 - **思源字体**：标题 / 按钮 / 插件名使用思源宋体，其余文字使用思源黑体；未安装思源字体时自动回退微软宋体 / 微软黑体
 - **居中标题**：页面标题居中显示，与两侧操作按钮精确对齐
-
-## 界面预览
-
-| 浅色模式 | 深色模式 |
-|---|---|
-| ![浅色模式](screenshots/light-mode.png) | ![深色模式](screenshots/dark-mode.png) |
 
 ## 安装
 
