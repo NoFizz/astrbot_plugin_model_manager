@@ -1,4 +1,4 @@
-"""astrbot_plugin_model_manager v1.2.4 - Unified Model Manager
+"""astrbot_plugin_model_manager v1.4.0 - Unified Model Manager
 
 Follows official Plugin Pages docs exactly:
   - Route: /{PLUGIN_NAME}/{endpoint}
@@ -16,6 +16,8 @@ import re
 import threading
 import time
 
+import yaml
+
 from astrbot.api import AstrBotConfig, logger
 from astrbot.api.star import Context, Star, register
 from astrbot.api.web import error_response, json_response, request
@@ -23,11 +25,13 @@ from astrbot.api.web import error_response, json_response, request
 try:
     from astrbot.core.utils.astrbot_path import get_astrbot_config_path
 except ImportError:
+
     def get_astrbot_config_path() -> str:
         return ""
 
+
 PLUGIN_NAME = "astrbot_plugin_model_manager"
-PLUGIN_VERSION = "1.2.4"
+PLUGIN_VERSION = "1.4.0"
 MAX_FIELD_PATH_LENGTH = 500
 MAX_SCHEMA_DEPTH = 10
 MAX_BATCH_SIZE = 100
@@ -37,10 +41,29 @@ EXCLUDED_DIRS = {"__pycache__", "node_modules", ".git", ".vscode"}
 _MISSING = object()
 MAX_VALUE_LENGTH = 4096
 
-_FIELD_PATH_RE = re.compile(r'^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)*$')
-_TPL_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
-_SCHEMA_KEY_RE = re.compile(r'^[^\x00-\x1f/]+$')
-_PLUGIN_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
+_FIELD_PATH_RE = re.compile(r"^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)*$")
+_TPL_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
+_SCHEMA_KEY_RE = re.compile(r"^[^\x00-\x1f/]+$")
+_PLUGIN_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+
+def _dedupe_preserve_order(values: list) -> list[str]:
+    """按首次出现顺序去重，并丢弃空白条目。
+
+    Args:
+        values: 原始条目列表（旧版文件中可能混入非字符串脏数据）。
+
+    Returns:
+        去重后的字符串列表。
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+    for x in values:
+        s = str(x).strip()
+        if s and s not in seen:
+            seen.add(s)
+            result.append(s)
+    return result
 
 
 def _sanitize_plugin_name(name: str, cfg_dir: pathlib.Path | None) -> str | None:
@@ -48,7 +71,9 @@ def _sanitize_plugin_name(name: str, cfg_dir: pathlib.Path | None) -> str | None
     if not name or not _PLUGIN_NAME_RE.match(name):
         return None
     if not cfg_dir:
-        logger.warning(f"[{PLUGIN_NAME}] _sanitize_plugin_name called with cfg_dir=None")
+        logger.warning(
+            f"[{PLUGIN_NAME}] _sanitize_plugin_name called with cfg_dir=None"
+        )
         return None
     try:
         (cfg_dir / f"{name}_config.json").resolve().relative_to(cfg_dir.resolve())
@@ -85,13 +110,11 @@ def _sanitize_value(val) -> str | None:
     "astrbot_plugin_model_manager",
     "NoFizz",
     "Unified LLM model configuration manager",
-    "1.2.4",
+    "1.4.0",
 )
 class ModelManagerPlugin(Star):
-
     def __init__(self, context: Context, config: AstrBotConfig | None = None):
         super().__init__(context)
-        self.config = config or {}
         self._scan_cache: tuple[list[dict], list[dict]] | None = None
         self._scan_cache_time: float = 0.0
         self._config_dir_cache: pathlib.Path | None = None
@@ -136,7 +159,7 @@ class ModelManagerPlugin(Star):
             ["POST"],
             "Save plugin sort order",
         )
-        logger.info(f"[{PLUGIN_NAME}] v1.2.4 loaded")
+        logger.info(f"[{PLUGIN_NAME}] v1.4.0 loaded")
 
     async def terminate(self):
         """插件卸载/停用时清理资源。"""
@@ -181,35 +204,38 @@ class ModelManagerPlugin(Star):
                 return d
         return None
 
-    def _parse_yaml_top_level_string_field(self, path: pathlib.Path, key: str) -> str:
-        """轻量级 YAML 顶层字段解析（仅适用于简单 key: value 场景）。"""
-        if not path.exists():
-            return ""
-        try:
-            for raw_line in path.read_text(encoding="utf-8-sig").splitlines():
-                if raw_line.startswith(f"{key}:") and not raw_line.startswith((" ", "\t")):
-                    val = raw_line.split(":", 1)[1].strip()
-                    if val.startswith("#"):
-                        return ""
-                    quoted = False
-                    for ch in ("'", '"'):
-                        if val.startswith(ch) and val.endswith(ch) and len(val) >= 2:
-                            val = val[1:-1]
-                            quoted = True
-                            break
-                    if not quoted and "#" in val:
-                        val = val.split("#", 1)[0].strip()
-                    return val.strip()
-        except Exception:
-            pass
-        return ""
-
     def _read_plugin_display_name(self, plugin_dir: pathlib.Path) -> str:
+        """从 metadata.yaml 读取插件显示名（display_name）。
+
+        文件缺失、为空、内容非 dict、缺少 display_name 键或 YAML 语法错误时
+        返回 ""，调用方将回退使用插件目录名。
+
+        Args:
+            plugin_dir: 插件目录路径。
+
+        Returns:
+            规范化后的显示名；与目录名相同或解析失败时返回 ""。
+        """
         dir_name = plugin_dir.name
-        dn = self._parse_yaml_top_level_string_field(plugin_dir / "metadata.yaml", "display_name")
+        yaml_file = plugin_dir / "metadata.yaml"
+        try:
+            if not yaml_file.exists():
+                return ""
+            data = yaml.safe_load(yaml_file.read_text(encoding="utf-8-sig"))
+        except (OSError, UnicodeDecodeError, yaml.YAMLError) as e:
+            logger.warning(f"[{PLUGIN_NAME}] Failed to parse {yaml_file}: {e}")
+            return ""
+        if not isinstance(data, dict):
+            return ""
+        dn = data.get("display_name")
+        if not isinstance(dn, str):
+            return ""
+        dn = dn.strip()
         return dn if dn and dn != dir_name else ""
 
-    def _find_provider_fields(self, schema: dict, prefix: str = "", depth: int = 0) -> list[dict]:
+    def _find_provider_fields(
+        self, schema: dict, prefix: str = "", depth: int = 0
+    ) -> list[dict]:
         """递归扫描 _conf_schema.json，提取含 _special=select_provider* 的字段。"""
         if depth > MAX_SCHEMA_DEPTH:
             return []
@@ -222,14 +248,20 @@ class ModelManagerPlugin(Star):
                 continue
             path = f"{prefix}.{key}" if prefix else key
             special = value.get("_special", "")
-            if special in ("select_provider", "select_provider_tts", "select_provider_stt"):
-                results.append({
-                    "field_path": path,
-                    "special_type": special,
-                    "description": value.get("description", key),
-                    "hint": value.get("hint", ""),
-                    "depth": depth,
-                })
+            if special in (
+                "select_provider",
+                "select_provider_tts",
+                "select_provider_stt",
+            ):
+                results.append(
+                    {
+                        "field_path": path,
+                        "special_type": special,
+                        "description": value.get("description", key),
+                        "hint": value.get("hint", ""),
+                        "depth": depth,
+                    }
+                )
             if value.get("type") == "object":
                 items = value.get("items", {})
                 if isinstance(items, dict):
@@ -239,19 +271,27 @@ class ModelManagerPlugin(Star):
                 if not isinstance(templates, dict):
                     templates = value.get("items")
                 if isinstance(templates, list):
-                    templates = {str(i): t for i, t in enumerate(templates) if isinstance(t, dict)}
+                    templates = {
+                        str(i): t
+                        for i, t in enumerate(templates)
+                        if isinstance(t, dict)
+                    }
                 if not isinstance(templates, dict):
                     continue
                 for tpl_name, tpl_def in templates.items():
                     if not isinstance(tpl_def, dict):
                         continue
                     if not _TPL_NAME_RE.match(tpl_name):
-                        logger.warning(f"[{PLUGIN_NAME}] Invalid template name '{tpl_name}', skipping")
+                        logger.warning(
+                            f"[{PLUGIN_NAME}] Invalid template name '{tpl_name}', skipping"
+                        )
                         continue
                     items = tpl_def.get("items", {})
                     if isinstance(items, dict):
                         results.extend(
-                            self._find_provider_fields(items, f"{path}.__tpl__{tpl_name}", depth + 1)
+                            self._find_provider_fields(
+                                items, f"{path}.__tpl__{tpl_name}", depth + 1
+                            )
                         )
         return results
 
@@ -279,7 +319,9 @@ class ModelManagerPlugin(Star):
         try:
             tmp.replace(path)
         except OSError as e:
-            logger.warning(f"[{PLUGIN_NAME}] Atomic write failed, falling back to direct write: {e}")
+            logger.warning(
+                f"[{PLUGIN_NAME}] Atomic write failed, falling back to direct write: {e}"
+            )
             try:
                 path.write_text(content, encoding="utf-8")
             except OSError as e2:
@@ -297,15 +339,20 @@ class ModelManagerPlugin(Star):
         current = data
         for part in parts:
             if part.startswith("__tpl__"):
-                tpl_name = part[len("__tpl__"):]
+                tpl_name = part[len("__tpl__") :]
                 if isinstance(current, list):
                     matched = None
                     for item in current:
-                        if isinstance(item, dict) and item.get("__template_key") == tpl_name:
+                        if (
+                            isinstance(item, dict)
+                            and item.get("__template_key") == tpl_name
+                        ):
                             matched = item
                             break
                     if matched is None:
-                        logger.debug(f"[{PLUGIN_NAME}] Template '{tpl_name}' not found in list")
+                        logger.debug(
+                            f"[{PLUGIN_NAME}] Template '{tpl_name}' not found in list"
+                        )
                         return _MISSING
                     current = matched
                 else:
@@ -338,19 +385,26 @@ class ModelManagerPlugin(Star):
         part = parts[idx]
         is_last = idx == len(parts) - 1
         if part.startswith("__tpl__"):
-            tpl_name = part[len("__tpl__"):]
+            tpl_name = part[len("__tpl__") :]
             if isinstance(current, list):
                 matched = False
                 for item in current:
-                    if isinstance(item, dict) and item.get("__template_key") == tpl_name:
+                    if (
+                        isinstance(item, dict)
+                        and item.get("__template_key") == tpl_name
+                    ):
                         if self._set_recursive(item, parts, idx + 1, value):
                             matched = True
                         else:
                             return False
                 if not matched:
-                    logger.warning(f"[{PLUGIN_NAME}] Template '{tpl_name}' not found in list")
+                    logger.warning(
+                        f"[{PLUGIN_NAME}] Template '{tpl_name}' not found in list"
+                    )
                 return matched
-            logger.warning(f"[{PLUGIN_NAME}] Cannot set __tpl__ field: expected list, got {type(current).__name__}")
+            logger.warning(
+                f"[{PLUGIN_NAME}] Cannot set __tpl__ field: expected list, got {type(current).__name__}"
+            )
             return False
         if isinstance(current, dict):
             if is_last:
@@ -359,6 +413,10 @@ class ModelManagerPlugin(Star):
             else:
                 nxt = current.get(part)
                 if isinstance(nxt, list):
+                    # 下一段为 __tpl__* 时，直接在列表上继续，
+                    # 由 __tpl__ 分支按 __template_key 匹配模板项
+                    if parts[idx + 1].startswith("__tpl__"):
+                        return self._set_recursive(nxt, parts, idx + 1, value)
                     matched = False
                     for item in nxt:
                         if isinstance(item, dict):
@@ -367,7 +425,9 @@ class ModelManagerPlugin(Star):
                             else:
                                 return False
                     if not matched:
-                        logger.warning(f"[{PLUGIN_NAME}] No valid dict items found in list at '{part}'")
+                        logger.warning(
+                            f"[{PLUGIN_NAME}] No valid dict items found in list at '{part}'"
+                        )
                     return matched
                 elif isinstance(nxt, dict):
                     return self._set_recursive(nxt, parts, idx + 1, value)
@@ -383,88 +443,136 @@ class ModelManagerPlugin(Star):
                         return False
         return False
 
-    async def _scan_all_plugins(self) -> tuple[list[dict], list[dict]]:
-        """扫描所有插件的 provider 配置字段（带 TTL 缓存）。返回 (settings, errors)。"""
+    def _scan_all_plugins_sync(self) -> tuple[list[dict], list[dict]]:
+        """同步扫描所有插件目录的 provider 配置字段（含全部阻塞式文件系统操作）。
+
+        由 _scan_all_plugins 通过 asyncio.to_thread 调用，避免阻塞事件循环。
+
+        Returns:
+            (settings, scan_errors) 元组。
+        """
+        plugins_dir = self._get_plugins_dir()
+        cfg_dir = self._get_config_dir()
+        if not plugins_dir:
+            return [], []
+        results = []
+        scan_errors = []
+        with os.scandir(plugins_dir) as entries:
+            plugin_dirs = sorted(
+                (
+                    e
+                    for e in entries
+                    if e.is_dir()
+                    and not e.name.startswith(".")
+                    and e.name not in EXCLUDED_DIRS
+                ),
+                key=lambda e: e.name,
+            )
+            for entry in plugin_dirs:
+                plugin_dir = pathlib.Path(entry.path)
+                schema_file = plugin_dir / "_conf_schema.json"
+                if not schema_file.exists():
+                    continue
+                plugin_name = plugin_dir.name
+                if plugin_name == PLUGIN_NAME:
+                    continue
+                try:
+                    schema = self._read_json_file(schema_file)
+                    if not schema or not isinstance(schema, dict):
+                        continue
+                    fields = self._find_provider_fields(schema)
+                    if not fields:
+                        continue
+                    if len(fields) > MAX_FIELDS_PER_PLUGIN:
+                        logger.warning(
+                            f"[{PLUGIN_NAME}] Plugin '{plugin_name}' has too many fields ({len(fields)}), truncating"
+                        )
+                        fields = fields[:MAX_FIELDS_PER_PLUGIN]
+                    display_name = self._read_plugin_display_name(plugin_dir)
+                    plugin_config = {}
+                    if cfg_dir:
+                        cf = cfg_dir / f"{plugin_name}_config.json"
+                        if cf.exists():
+                            raw_cfg = self._read_json_file(cf)
+                            if isinstance(raw_cfg, dict):
+                                plugin_config = raw_cfg
+                    for field in fields:
+                        cv = self._get_nested_value(plugin_config, field["field_path"])
+                        if cv is _MISSING:
+                            cv = ""
+                        results.append(
+                            {
+                                "plugin_name": plugin_name,
+                                "display_name": display_name,
+                                "field_path": field["field_path"],
+                                "special_type": field["special_type"],
+                                "description": field["description"],
+                                "hint": (field.get("hint") or "")[:200],
+                                "current_value": cv if cv is not None else "",
+                            }
+                        )
+                except Exception as e:
+                    logger.warning(
+                        f"[{PLUGIN_NAME}] Failed to scan plugin '{plugin_name}': {e}"
+                    )
+                    scan_errors.append({"plugin": plugin_name, "error": str(e)})
+                    continue
+
+        return results, scan_errors
+
+    async def _scan_all_plugins(
+        self, force: bool = False
+    ) -> tuple[list[dict], list[dict]]:
+        """扫描所有插件的 provider 配置字段（带 TTL 缓存）。返回 (settings, errors)。
+
+        Args:
+            force: 为 True 时绕过 30 秒扫描缓存，强制重新扫描（结果仍会写回缓存）。
+
+        Returns:
+            (settings, scan_errors) 元组。
+        """
         now = time.time()
-        if self._scan_cache is not None and (now - self._scan_cache_time) < SCAN_CACHE_TTL:
+        cache_valid = (
+            self._scan_cache is not None
+            and (now - self._scan_cache_time) < SCAN_CACHE_TTL
+        )
+        if cache_valid and not force:
             results, scan_errors = self._scan_cache
         else:
             async with self._scan_lock:
                 now = time.time()
-                if self._scan_cache is not None and (now - self._scan_cache_time) < SCAN_CACHE_TTL:
+                cache_valid = (
+                    self._scan_cache is not None
+                    and (now - self._scan_cache_time) < SCAN_CACHE_TTL
+                )
+                if cache_valid and not force:
                     results, scan_errors = self._scan_cache
                 else:
-                    plugins_dir = self._get_plugins_dir()
-                    cfg_dir = self._get_config_dir()
-                    if not plugins_dir:
-                        return [], []
-                    results = []
-                    scan_errors = []
-                    with os.scandir(plugins_dir) as entries:
-                        plugin_dirs = sorted(
-                            (e for e in entries if e.is_dir() and not e.name.startswith(".") and e.name not in EXCLUDED_DIRS),
-                            key=lambda e: e.name
-                        )
-                        for entry in plugin_dirs:
-                            plugin_dir = pathlib.Path(entry.path)
-                            schema_file = plugin_dir / "_conf_schema.json"
-                            if not schema_file.exists():
-                                continue
-                            plugin_name = plugin_dir.name
-                            if plugin_name == PLUGIN_NAME:
-                                continue
-                            try:
-                                schema = self._read_json_file(schema_file)
-                                if not schema or not isinstance(schema, dict):
-                                    continue
-                                fields = self._find_provider_fields(schema)
-                                if not fields:
-                                    continue
-                                if len(fields) > MAX_FIELDS_PER_PLUGIN:
-                                    logger.warning(f"[{PLUGIN_NAME}] Plugin '{plugin_name}' has too many fields ({len(fields)}), truncating")
-                                    fields = fields[:MAX_FIELDS_PER_PLUGIN]
-                                display_name = self._read_plugin_display_name(plugin_dir)
-                                plugin_config = {}
-                                if cfg_dir:
-                                    cf = cfg_dir / f"{plugin_name}_config.json"
-                                    if cf.exists():
-                                        raw_cfg = self._read_json_file(cf)
-                                        if isinstance(raw_cfg, dict):
-                                            plugin_config = raw_cfg
-                                for field in fields:
-                                    cv = self._get_nested_value(plugin_config, field["field_path"])
-                                    if cv is _MISSING:
-                                        cv = ""
-                                    results.append({
-                                        "plugin_name": plugin_name,
-                                        "display_name": display_name,
-                                        "field_path": field["field_path"],
-                                        "special_type": field["special_type"],
-                                        "description": field["description"],
-                                        "hint": (field.get("hint") or "")[:200],
-                                        "current_value": cv if cv is not None else "",
-                                    })
-                            except Exception as e:
-                                logger.warning(f"[{PLUGIN_NAME}] Failed to scan plugin '{plugin_name}': {e}")
-                                scan_errors.append({"plugin": plugin_name, "error": str(e)})
-                                continue
-
+                    results, scan_errors = await asyncio.to_thread(
+                        self._scan_all_plugins_sync
+                    )
                     self._scan_cache = (results, scan_errors)
                     self._scan_cache_time = now
 
-        sort_order = self._read_sort_order()
-        if sort_order:
-            order_map = {name: i for i, name in enumerate(sort_order)}
-            results = sorted(results, key=lambda x: order_map.get(x["plugin_name"], 9999))
+        sort_data = await asyncio.to_thread(self._read_sort_order)
+        order = sort_data.get("order", []) if isinstance(sort_data, dict) else []
+        if order:
+            order_map = {name: i for i, name in enumerate(order)}
+            results = sorted(
+                results, key=lambda x: order_map.get(x["plugin_name"], 9999)
+            )
         return results, scan_errors
 
     def _get_all_providers(self) -> list[dict]:
-        """获取所有可用的 LLM 提供商列表。
+        """获取所有可用的 LLM 提供商列表（同步方法，含文件系统操作，须在 to_thread 中调用）。
 
         采用 3 层降级策略（均非官方公开 API，可能随版本变动）：
           1. context.get_all_providers() — 较新版本提供的便捷方法
           2. context.provider_manager.chat_providers — 内部管理器属性
           3. 直接读取 abconf_*.json 配置文件 — 最底层 fallback
+
+        Returns:
+            提供商字典列表，每项含 id/model/type；全部降级失败时返回空列表。
         """
         try:
             providers = self.context.get_all_providers()
@@ -485,11 +593,13 @@ class ModelManagerPlugin(Star):
                 ptype = pc.get("type", "") or ""
                 if hasattr(ptype, "value"):
                     ptype = ptype.value
-                result.append({
-                    "id": pid,
-                    "model": pc.get("model", "") or (getattr(p, "model", "") or ""),
-                    "type": str(ptype),
-                })
+                result.append(
+                    {
+                        "id": pid,
+                        "model": pc.get("model", "") or (getattr(p, "model", "") or ""),
+                        "type": str(ptype),
+                    }
+                )
             if result:
                 return result
         except Exception as e:
@@ -498,11 +608,15 @@ class ModelManagerPlugin(Star):
             pmgr = self.context.provider_manager
             if pmgr and hasattr(pmgr, "chat_providers"):
                 return [
-                    {"id": pid, "model": getattr(prov, "model", "") or "", "type": getattr(prov, "provider_type", "") or ""}
+                    {
+                        "id": pid,
+                        "model": getattr(prov, "model", "") or "",
+                        "type": getattr(prov, "provider_type", "") or "",
+                    }
                     for pid, prov in pmgr.chat_providers.items()
                 ]
-        except Exception:
-            pass
+        except (OSError, ValueError, KeyError, AttributeError) as e:
+            logger.warning(f"[{PLUGIN_NAME}] provider_manager fallback failed: {e}")
         cfg_dir = self._get_config_dir()
         if cfg_dir:
             all_p, seen = [], set()
@@ -514,12 +628,20 @@ class ModelManagerPlugin(Star):
                     pid = p.get("id", "")
                     if pid and p.get("enable", True) and pid not in seen:
                         seen.add(pid)
-                        all_p.append({"id": pid, "model": p.get("model", "") or "", "type": p.get("provider_source_id", "") or ""})
+                        all_p.append(
+                            {
+                                "id": pid,
+                                "model": p.get("model", "") or "",
+                                "type": p.get("provider_source_id", "") or "",
+                            }
+                        )
             if all_p:
                 return all_p
         return []
 
-    def _update_plugin_config(self, plugin_name: str, field_path: str, new_value: str) -> bool:
+    def _update_plugin_config(
+        self, plugin_name: str, field_path: str, new_value: str
+    ) -> bool:
         """读取→修改→写回单个插件配置文件。"""
         cfg_dir = self._get_config_dir()
         if not cfg_dir:
@@ -537,18 +659,22 @@ class ModelManagerPlugin(Star):
         if self._terminated:
             return error_response("Plugin unloaded", status_code=503)
         try:
-            settings, scan_errors = await self._scan_all_plugins()
-            providers = self._get_all_providers()
-            return json_response({
-                "status": "ok",
-                "data": {
-                    "version": PLUGIN_VERSION,
-                    "settings": settings,
-                    "providers": providers,
-                    "total": len(settings),
-                    "errors": scan_errors,
+            # 查询参数 force=1/true 时绕过 30 秒扫描缓存，强制重新扫描
+            force = str(request.query.get("force", "")).strip().lower() in ("1", "true")
+            settings, scan_errors = await self._scan_all_plugins(force=force)
+            providers = await asyncio.to_thread(self._get_all_providers)
+            return json_response(
+                {
+                    "status": "ok",
+                    "data": {
+                        "version": PLUGIN_VERSION,
+                        "settings": settings,
+                        "providers": providers,
+                        "total": len(settings),
+                        "errors": scan_errors,
+                    },
                 }
-            })
+            )
         except Exception as e:
             logger.error(f"[{PLUGIN_NAME}] api_get_all: {e}", exc_info=True)
             return error_response(str(e))
@@ -557,7 +683,7 @@ class ModelManagerPlugin(Star):
         if self._terminated:
             return error_response("Plugin unloaded", status_code=503)
         try:
-            providers = self._get_all_providers()
+            providers = await asyncio.to_thread(self._get_all_providers)
             return json_response({"status": "ok", "data": {"providers": providers}})
         except Exception as e:
             logger.error(f"[{PLUGIN_NAME}] api_available_providers: {e}", exc_info=True)
@@ -567,6 +693,8 @@ class ModelManagerPlugin(Star):
         if self._terminated:
             return error_response("Plugin unloaded", status_code=503)
         payload = await request.json(default={})
+        if not isinstance(payload, dict):
+            return error_response("请求体格式错误：必须是 JSON 对象", status_code=400)
         cfg_dir = self._get_config_dir()
         if not cfg_dir:
             return error_response("Config directory not available", status_code=500)
@@ -574,7 +702,9 @@ class ModelManagerPlugin(Star):
         fp = _sanitize_field_path(payload.get("field_path", ""))
         val = _sanitize_value(payload.get("value", ""))
         if not pn or not fp or val is None:
-            return error_response("Invalid plugin_name, field_path, or value", status_code=400)
+            return error_response(
+                "Invalid plugin_name, field_path, or value", status_code=400
+            )
         logger.debug(f"[{PLUGIN_NAME}] Update: {pn}/{fp}")
         try:
             async with self._write_lock:
@@ -590,11 +720,15 @@ class ModelManagerPlugin(Star):
         if self._terminated:
             return error_response("Plugin unloaded", status_code=503)
         payload = await request.json(default={})
+        if not isinstance(payload, dict):
+            return error_response("请求体格式错误：必须是 JSON 对象", status_code=400)
         updates = payload.get("updates", [])
         if not isinstance(updates, list):
             return error_response("updates must be a list", status_code=400)
         if len(updates) > MAX_BATCH_SIZE:
-            return error_response(f"Too many updates (max {MAX_BATCH_SIZE})", status_code=400)
+            return error_response(
+                f"Too many updates (max {MAX_BATCH_SIZE})", status_code=400
+            )
 
         cfg_dir = self._get_config_dir()
         if not cfg_dir:
@@ -611,7 +745,9 @@ class ModelManagerPlugin(Star):
                 continue
             grouped.setdefault(pn, []).append((fp, val))
 
-        logger.debug(f"[{PLUGIN_NAME}] Batch update: {sum(len(v) for v in grouped.values())} fields across {len(grouped)} plugins")
+        logger.debug(
+            f"[{PLUGIN_NAME}] Batch update: {sum(len(v) for v in grouped.values())} fields across {len(grouped)} plugins"
+        )
         ok_count, fails = 0, []
         written = False
         async with self._write_lock:
@@ -636,15 +772,20 @@ class ModelManagerPlugin(Star):
                         self._write_json_file(cf, pc)
                         written = True
                     except Exception as e:
-                        logger.error(f"[{PLUGIN_NAME}] Batch write failed for {pn}: {e}", exc_info=True)
+                        logger.error(
+                            f"[{PLUGIN_NAME}] Batch write failed for {pn}: {e}",
+                            exc_info=True,
+                        )
                         # 仅回退该插件实际成功设置的字段数（非全部字段数），
                         # 因为部分字段可能在 _set_nested_value 阶段已失败、未计入 ok_count
                         ok_count -= plugin_ok
-                        fails.extend(f"{pn}/{fp}: write error ({type(e).__name__})" for fp, _ in fields)
+                        fails.extend(f"{pn}/{fp}: write error: {e}" for fp, _ in fields)
             if written:
                 self._scan_cache = None  # 写入后使缓存失效
 
-        return json_response({"status": "ok", "data": {"success": ok_count, "failures": fails}})
+        return json_response(
+            {"status": "ok", "data": {"success": ok_count, "failures": fails}}
+        )
 
     def _get_sort_order_file(self) -> pathlib.Path | None:
         cfg_dir = self._get_config_dir()
@@ -652,34 +793,52 @@ class ModelManagerPlugin(Star):
             return cfg_dir / f"{PLUGIN_NAME}_sort_order.json"
         return None
 
-    def _read_sort_order(self) -> list[str]:
-        """读取插件排序列表（去重、去空）。"""
+    def _read_sort_order(self) -> dict[str, list[str]]:
+        """读取插件排序数据（去重、去空，兼容旧版裸数组文件）。
+
+        旧版文件为纯数组（仅含 order），读取时自动迁移为
+        {"order": [...], "hidden": []}。
+
+        Returns:
+            规范化后的排序字典；文件缺失或内容非法时返回空结构。
+        """
         f = self._get_sort_order_file()
         if f and f.exists():
             data = self._read_json_file(f)
             if isinstance(data, list):
-                seen: set[str] = set()
-                result: list[str] = []
-                for x in data:
-                    s = str(x).strip()
-                    if s and s not in seen:
-                        seen.add(s)
-                        result.append(s)
-                return result
-        return []
+                return {"order": _dedupe_preserve_order(data), "hidden": []}
+            if isinstance(data, dict):
+                order = data.get("order", [])
+                hidden = data.get("hidden", [])
+                return {
+                    "order": _dedupe_preserve_order(order)
+                    if isinstance(order, list)
+                    else [],
+                    "hidden": _dedupe_preserve_order(hidden)
+                    if isinstance(hidden, list)
+                    else [],
+                }
+        return {"order": [], "hidden": []}
 
-    def _write_sort_order(self, order: list[str]) -> None:
-        """持久化插件排序列表。"""
+    def _write_sort_order(
+        self, order: list[str], hidden: list[str] | None = None
+    ) -> None:
+        """持久化插件排序数据为 {"order": [...], "hidden": [...]}。
+
+        Args:
+            order: 排序后的插件名列表。
+            hidden: 折叠隐藏的插件名列表，缺省为空。
+        """
         f = self._get_sort_order_file()
         if f:
-            self._write_json_file(f, order)
+            self._write_json_file(f, {"order": order, "hidden": hidden or []})
 
     async def api_get_sort_order(self):
         if self._terminated:
             return error_response("Plugin unloaded", status_code=503)
         try:
-            order = self._read_sort_order()
-            return json_response({"status": "ok", "data": {"order": order}})
+            data = await asyncio.to_thread(self._read_sort_order)
+            return json_response({"status": "ok", "data": data})
         except Exception as e:
             logger.error(f"[{PLUGIN_NAME}] api_get_sort_order: {e}", exc_info=True)
             return error_response(str(e))
@@ -688,19 +847,34 @@ class ModelManagerPlugin(Star):
         if self._terminated:
             return error_response("Plugin unloaded", status_code=503)
         payload = await request.json(default={})
-        order = payload.get("order", [])
-        if not isinstance(order, list):
-            return error_response("order must be a list", status_code=400)
-        # 去重并保持顺序
-        seen: set[str] = set()
-        deduped: list[str] = []
-        for x in order:
-            if isinstance(x, str) and x.strip() and x not in seen:
-                seen.add(x)
-                deduped.append(x)
-        order = deduped
+        # 兼容三种请求体：裸数组 / {"order": [...]} / {"order": [...], "hidden": [...]}
+        if isinstance(payload, list):
+            order, hidden = payload, []
+        elif isinstance(payload, dict):
+            order = payload.get("order", [])
+            hidden = payload.get("hidden", [])
+        else:
+            return error_response(
+                "请求体格式错误：必须是数组或 JSON 对象", status_code=400
+            )
+        if not isinstance(order, list) or not isinstance(hidden, list):
+            return error_response("order 和 hidden 必须是数组", status_code=400)
+        for entry in order:
+            if not isinstance(entry, str) or not _PLUGIN_NAME_RE.match(entry):
+                return error_response(
+                    f"排序列表包含非法插件名：{entry!r}", status_code=400
+                )
+        for entry in hidden:
+            if not isinstance(entry, str) or not _PLUGIN_NAME_RE.match(entry):
+                return error_response(
+                    f"隐藏列表包含非法插件名：{entry!r}", status_code=400
+                )
         try:
-            self._write_sort_order(order)
+            await asyncio.to_thread(
+                self._write_sort_order,
+                _dedupe_preserve_order(order),
+                _dedupe_preserve_order(hidden),
+            )
             return json_response({"status": "ok", "data": {"saved": True}})
         except Exception as e:
             logger.error(f"[{PLUGIN_NAME}] api_save_sort_order: {e}", exc_info=True)
