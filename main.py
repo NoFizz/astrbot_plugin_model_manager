@@ -1,4 +1,4 @@
-"""astrbot_plugin_model_manager v1.4.0 - Unified Model Manager
+"""astrbot_plugin_model_manager v1.4.1 - Unified Model Manager
 
 Follows official Plugin Pages docs exactly:
   - Route: /{PLUGIN_NAME}/{endpoint}
@@ -31,7 +31,7 @@ except ImportError:
 
 
 PLUGIN_NAME = "astrbot_plugin_model_manager"
-PLUGIN_VERSION = "1.4.0"
+PLUGIN_VERSION = "1.4.1"
 MAX_FIELD_PATH_LENGTH = 500
 MAX_SCHEMA_DEPTH = 10
 MAX_BATCH_SIZE = 100
@@ -110,7 +110,7 @@ def _sanitize_value(val) -> str | None:
     "astrbot_plugin_model_manager",
     "NoFizz",
     "Unified LLM model configuration manager",
-    "1.4.0",
+    "1.4.1",
 )
 class ModelManagerPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig | None = None):
@@ -159,7 +159,7 @@ class ModelManagerPlugin(Star):
             ["POST"],
             "Save plugin sort order",
         )
-        logger.info(f"[{PLUGIN_NAME}] v1.4.0 loaded")
+        logger.info(f"[{PLUGIN_NAME}] v1.4.1 loaded")
 
     async def terminate(self):
         """插件卸载/停用时清理资源。"""
