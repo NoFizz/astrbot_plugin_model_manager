@@ -1,6 +1,6 @@
 name: astrbot_plugin_model_manager
 author: NoFizz
-version: 1.2.4
+version: 1.4.0
 desc: 统一管理所有插件的 LLM 模型配置，支持单独替换、一键设置、插件排序、侧边栏导航、中英文切换。
 short_desc: 一站式管理所有插件的 LLM 模型分配
 display_name: 模型管理器
