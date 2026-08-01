@@ -58,7 +58,8 @@
       "sidebarClose": "关闭",
       "hidePlugin": "隐藏该插件",
       "showPlugin": "显示该插件",
-      "dragHint": "拖动排序"
+      "dragHint": "拖动排序",
+      "danglingProvider": "保存的模型已不存在，请重新选择"
     }
   }
 }

@@ -58,7 +58,8 @@
       "sidebarClose": "Close",
       "hidePlugin": "Hide plugin",
       "showPlugin": "Show plugin",
-      "dragHint": "Drag to reorder"
+      "dragHint": "Drag to reorder",
+      "danglingProvider": "Saved provider no longer exists — please reselect"
     }
   }
 }
