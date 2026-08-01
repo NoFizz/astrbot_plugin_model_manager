@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.2.4-blue?style=flat" alt="version">
+  <img src="https://img.shields.io/badge/version-1.4.0-blue?style=flat" alt="version">
   <img src="https://img.shields.io/badge/license-AGPL--3.0-green?style=flat" alt="license">
   <img src="https://img.shields.io/badge/python-3.10+-blue?style=flat" alt="python">
   <img src="https://img.shields.io/badge/AstrBot->=4.26.0-orange?style=flat" alt="AstrBot version">
@@ -24,8 +24,20 @@
 - **单独替换**：把所有正在使用"旧模型"的配置项，一键换成"新模型"
 - **一键设置**：一键把所有配置项都设为同一个模型
 - **插件排序**：自定义插件的显示顺序，并自动记住
-- **侧边栏导航**：可隐藏的左侧侧边栏，支持快速跳转、隐藏插件、拖拽排序
-- **跟随语言**：界面语言自动跟随 AstrBot WebUI 的语言设置（中文 / English）
+- **侧边栏导航**：可隐藏的左侧侧边栏，支持快速跳转、隐藏插件、拖拽排序；隐藏状态也会被持久化保存
+- **强制刷新**：点击刷新按钮可绕过 30 秒扫描缓存，立即重新扫描插件配置
+- **悬空模型提示**：当某个配置项保存的模型已不存在时，会显示警告图标提示重新选择
+- **跟随语言**：界面语言自动跟随 AstrBot WebUI 的语言设置（中文 / English），`<html lang>` 同步更新
+- **深色模式**：自动跟随 AstrBot WebUI 主题（浅色 / 深色）
+- **两行标题**：插件卡片与侧边栏均采用两行展示——第一行显示名称、第二行完整插件 ID，信息一目了然
+- **思源字体**：标题 / 按钮 / 插件名使用思源宋体，其余文字使用思源黑体；未安装思源字体时自动回退微软宋体 / 微软黑体
+- **居中标题**：页面标题居中显示，与两侧操作按钮精确对齐
+
+## 界面预览
+
+| 浅色模式 | 深色模式 |
+|---|---|
+| ![浅色模式](screenshots/light-mode.png) | ![深色模式](screenshots/dark-mode.png) |
 
 ## 安装
 
@@ -85,7 +97,15 @@
 
 ### 插件排序
 
-点击插件卡片左侧的 **▲ / ▼** 按钮调整显示顺序，排序会自动保存。
+点击插件卡片左侧的 **▲ / ▼** 按钮调整显示顺序，排序会自动保存。侧边栏中的拖拽排序与隐藏操作同样会被持久化。
+
+### 强制刷新
+
+点击页面右上角的 **刷新** 按钮，会绕过扫描缓存立即重新扫描所有插件的模型配置，适合在安装/卸载其他插件后手动刷新。
+
+### 悬空模型提示
+
+当某个配置项当前保存的模型在可用模型列表中不存在时（例如该模型已被删除），该配置项会以警告样式高亮并显示提示图标，提醒重新选择。
 
 ### 语言
 
