@@ -1,4 +1,4 @@
-// Model Manager v1.2.4 — follows official Plugin Pages docs exactly
+// Model Manager v1.4.0 — follows official Plugin Pages docs exactly
 // NO localStorage (sandboxed iframe forbids it)
 // Theme managed by bridge SDK automatically
 // i18n via official bridge.t() + onContext() API
@@ -7,6 +7,23 @@ const bridge = window.AstrBotPluginPage;
 
 // Wait for bridge ready (official pattern)
 const context = await bridge.ready();
+
+// 当前语言标识（桥接 SDK 的 locale，如 zh-CN / en-US；缺省 zh-CN）
+let currentLocale = (context && context.locale) || "zh-CN";
+
+/** 将 AstrBot locale（如 zh-CN / en / zh_hans）映射为 BCP47；未知或缺失时回退 zh-CN */
+function toBCP47(locale) {
+  const raw = String(locale || "").trim().toLowerCase();
+  if (!raw) return "zh-CN";
+  if (raw === "zh-hans") return "zh-CN";
+  if (raw === "zh-hant") return "zh-TW";
+  const parts = raw.split(/[-_]/);
+  if (parts.length >= 2 && parts[1].length === 2) {
+    return parts[0] + "-" + parts[1].toUpperCase();
+  }
+  const known = { zh: "zh-CN", en: "en-US", ja: "ja-JP", ko: "ko-KR" };
+  return known[parts[0]] || parts[0];
+}
 
 // i18n — English fallbacks; translations loaded from .astrbot-plugin/i18n/*.json
 const enFallback = {
@@ -63,6 +80,7 @@ const enFallback = {
   hidePlugin: "Hide plugin",
   showPlugin: "Show plugin",
   dragHint: "Drag to reorder",
+  danglingProvider: "Saved provider no longer exists — please reselect",
 };
 
 /** 使用官方 bridge.t() 获取翻译，缺失时回退到英文 */
@@ -71,6 +89,8 @@ function t(key) {
 }
 
 function applyLanguage() {
+  // C1: 动态同步 <html lang>（BCP47），index.html 中的静态属性仅作回退
+  document.documentElement.lang = toBCP47(currentLocale);
   document.title = t("title");
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     const key = el.getAttribute("data-i18n");
@@ -88,6 +108,11 @@ function applyLanguage() {
   if (toggleBtn) toggleBtn.title = t("sidebarToggle");
   const closeBtn = document.querySelector("#sidebarCloseBtn");
   if (closeBtn) closeBtn.title = t("sidebarClose");
+  const refreshBtn = document.querySelector("#refreshBtn");
+  if (refreshBtn) {
+    refreshBtn.title = t("refresh");
+    refreshBtn.setAttribute("aria-label", t("refresh"));
+  }
 }
 
 // State
@@ -131,9 +156,13 @@ function getSortedPluginKeys(groups) {
   return sortedKeys;
 }
 
-/** 填充 provider 下拉列表 */
+/** 填充 provider 下拉列表（占位项与选项一律用 DOM API 构建，避免 t() 输出/插件数据进入 innerHTML） */
 function populateProviderSelect(selectEl, placeholderKey) {
-  selectEl.innerHTML = `<option value="">${t(placeholderKey)}</option>`;
+  selectEl.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = t(placeholderKey);
+  selectEl.appendChild(placeholder);
   for (const p of providers) {
     const opt = document.createElement("option");
     opt.value = p.id;
@@ -162,33 +191,46 @@ function showToast(msg, type) {
     toastEl.appendChild(icon);
   }
   toastEl.appendChild(document.createTextNode(msg));
-  toastEl.className = "toast show" + (type ? " toast-" + type : "");
+  // 显式切换类型 class，避免拼接动态类名
+  toastEl.className = "toast show";
+  toastEl.classList.remove("toast-success", "toast-error");
+  if (type) toastEl.classList.add(type === "success" ? "toast-success" : "toast-error");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toastEl.className = "toast"; }, 3000);
 }
 
-/** 切换按钮 loading 状态 */
+/** 切换按钮 loading 状态（loading=false 时恢复可用） */
 function setBtnLoading(btn, loading) {
   btn.classList.toggle("loading", loading);
-  if (loading) btn.disabled = true;
+  btn.disabled = loading;
 }
 
 // Load data
-async function loadAll() {
+/** 加载数据；force=true 时绕过后端 30s 扫描缓存（F1 手动刷新路径），否则走缓存路径 */
+async function loadAll(force) {
   showState("loading");
   const refreshBtn = $("#refreshBtn");
+  setBtnLoading(refreshBtn, true); // 忙碌状态：禁用 + loading
   refreshBtn.classList.add("spinning");
   try {
     applyLanguage();
 
     // bridge.apiGet resolves to the "data" field automatically
-    const settingsData = await bridge.apiGet("settings");
+    // 注意：endpoint 内不能带 "?"（bridge SDK 校验会拒绝），query 参数走第二个参数 params
+    const settingsData = await bridge.apiGet("settings", force ? { force: 1 } : undefined);
     allSettings = settingsData.settings || [];
     providers = settingsData.providers || [];
 
     try {
       const sortData = await bridge.apiGet("sort-order");
-      sortOrder = sortData.order || [];
+      if (Array.isArray(sortData)) {
+        // 兼容旧版裸数组响应
+        sortOrder = sortData;
+      } else {
+        sortOrder = sortData.order || [];
+        // F4: 用服务端持久化的隐藏插件列表初始化/合并会话状态
+        for (const name of sortData.hidden || []) hiddenPlugins.add(name);
+      }
     } catch (e) {
       sortOrder = [];
     }
@@ -214,17 +256,11 @@ async function loadAll() {
     showState("error");
   } finally {
     refreshBtn.classList.remove("spinning");
+    setBtnLoading(refreshBtn, false);
   }
 }
 
 // Render
-function getDisplayName(s) {
-  if (s.display_name && s.display_name !== s.plugin_name) {
-    return s.plugin_name + " / " + s.display_name;
-  }
-  return s.plugin_name;
-}
-
 function render() {
   const groups = groupByPlugin();
   const sortedKeys = getSortedPluginKeys(groups);
@@ -262,9 +298,36 @@ function render() {
 
     sortBtns.append(upBtn, downBtn);
 
+    // 卡片标题两行：第一行 display name（或去前缀短名），第二行完整插件名
     const title = document.createElement("div");
     title.className = "plugin-card-title";
-    title.textContent = getDisplayName(settings[0]);
+
+    const titleText = document.createElement("div");
+    titleText.className = "plugin-card-title-text";
+
+    const nameEl = document.createElement("span");
+    nameEl.className = "plugin-card-name";
+    const first = settings[0];
+    const display = first.display_name;
+    if (display && display !== pluginName) {
+      nameEl.textContent = display;
+      nameEl.title = display;
+    } else {
+      // 无 display_name 或与插件名相同时显示去前缀短名
+      const short = pluginName.startsWith("astrbot_plugin_")
+        ? pluginName.slice("astrbot_plugin_".length)
+        : pluginName;
+      nameEl.textContent = short;
+      nameEl.title = short;
+    }
+
+    const idEl = document.createElement("span");
+    idEl.className = "plugin-card-id";
+    idEl.textContent = pluginName;
+    idEl.title = pluginName;
+
+    titleText.append(nameEl, idEl);
+    title.appendChild(titleText);
 
     header.append(sortBtns, title);
 
@@ -318,7 +381,8 @@ function buildRow(s) {
   const row = document.createElement("div");
   row.className = "field-row";
 
-  const key = s.plugin_name + "|" + s.field_path;
+  // #15: 使用 JSON 元组作为键，避免插件名/路径含分隔符时发生键碰撞
+  const key = JSON.stringify([s.plugin_name, s.field_path]);
   const cur = s.current_value || "";
 
   const info = document.createElement("div");
@@ -379,6 +443,17 @@ function buildRow(s) {
     opt.textContent = p.id + (p.model ? " [" + p.model + "]" : "");
     if (p.id === cur) opt.selected = true;
     sel.appendChild(opt);
+  }
+
+  // F2: 悬空检测 — 已保存的值非空但不在 providers 列表中（如对应 provider 已卸载）
+  // 每次 render 都会重建行，因此天然随每次渲染/保存后重算
+  if (cur && !providers.some((p) => p.id === cur)) {
+    row.classList.add("is-dangling");
+    const warn = document.createElement("span");
+    warn.className = "mm-dangling-icon";
+    warn.title = t("danglingProvider");
+    warn.innerHTML = WARN_SVG;
+    wrap.appendChild(warn);
   }
 
   sel.addEventListener("change", () => {
@@ -455,6 +530,9 @@ const EYE_SVG =
   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF_SVG =
   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+// F2: 悬空警告图标（Material Rounded warning，静态常量，仅经 innerHTML 赋给空 span）
+const WARN_SVG =
+  '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
 
 // 创建侧栏 DOM（默认隐藏，通过 .open / .show class 控制）
 const sidebarBackdrop = document.createElement("div");
@@ -464,13 +542,28 @@ sidebarBackdrop.className = "sidebar-backdrop";
 const sidebarEl = document.createElement("aside");
 sidebarEl.id = "sidebar";
 sidebarEl.className = "sidebar";
-sidebarEl.innerHTML =
-  '<div class="sidebar-header">' +
-  '<h2 class="sidebar-title" data-i18n="sidebarTitle">模型配置插件</h2>' +
-  '<button id="sidebarCloseBtn" class="dialog-close">&times;</button>' +
-  "</div>" +
-  '<div id="sidebarList" class="sidebar-list"></div>';
 
+// C1: 静态侧栏结构改用 DOM API 构建（原先 innerHTML 字符串拼接不涉及动态数据，改为 createElement 更安全一致）
+const sidebarHeader = document.createElement("div");
+sidebarHeader.className = "sidebar-header";
+
+const sidebarTitle = document.createElement("h2");
+sidebarTitle.className = "sidebar-title";
+sidebarTitle.dataset.i18n = "sidebarTitle";
+sidebarTitle.textContent = "模型配置插件"; // 占位文案，applyLanguage() 会按当前语言覆盖
+
+const sidebarCloseBtn = document.createElement("button");
+sidebarCloseBtn.id = "sidebarCloseBtn";
+sidebarCloseBtn.className = "dialog-close";
+sidebarCloseBtn.textContent = "\u00d7";
+
+sidebarHeader.append(sidebarTitle, sidebarCloseBtn);
+
+const sidebarListEl = document.createElement("div");
+sidebarListEl.id = "sidebarList";
+sidebarListEl.className = "sidebar-list";
+
+sidebarEl.append(sidebarHeader, sidebarListEl);
 document.body.append(sidebarBackdrop, sidebarEl);
 
 function openSidebar() {
@@ -495,6 +588,7 @@ function toggleHidden(pluginName) {
   if (hiddenPlugins.has(pluginName)) hiddenPlugins.delete(pluginName);
   else hiddenPlugins.add(pluginName);
   render();
+  scheduleSidebarPersist(); // F4: 隐藏状态变化同样持久化
 }
 
 /** 点击侧栏项名称：平滑滚动主视图到对应插件卡片 */
@@ -512,25 +606,51 @@ function jumpToPlugin(pluginName, item) {
 // 拖拽排序状态
 let dragSrcEl = null;
 
+// F4: 侧栏顺序/隐藏状态持久化（300ms trailing 防抖 + 在途保护，避免并发请求）
+let sidebarSaveTimer = null;
+let sidebarSaveInFlight = false;
+let sidebarSavePending = false;
+
+/** 提交 {order, hidden} 到 save-sort-order；若上次请求仍在途则置 pending，完成后补发一次 */
+async function persistSidebar() {
+  if (sidebarSaveInFlight) {
+    sidebarSavePending = true;
+    return;
+  }
+  sidebarSaveInFlight = true;
+  try {
+    await bridge.apiPost("save-sort-order", {
+      order: getSortedPluginKeys(groupByPlugin()),
+      hidden: [...hiddenPlugins],
+    });
+  } catch (err) {
+    // 持久化失败不打断拖拽/隐藏交互：下次变更会再次尝试
+    console.error("persistSidebar failed:", err.message);
+  } finally {
+    sidebarSaveInFlight = false;
+    if (sidebarSavePending) {
+      sidebarSavePending = false;
+      persistSidebar();
+    }
+  }
+}
+
+/** 防抖触发持久化（trailing 300ms） */
+function scheduleSidebarPersist() {
+  clearTimeout(sidebarSaveTimer);
+  sidebarSaveTimer = setTimeout(persistSidebar, 300);
+}
+
 /** 拖拽结束后：按侧栏 DOM 顺序提交新的全局排序并持久化 */
-async function commitSidebarOrder() {
+function commitSidebarOrder() {
   const list = $("#sidebarList");
   const newOrder = Array.from(list.children).map((el) => el.dataset.plugin);
   const currentOrder = getSortedPluginKeys(groupByPlugin());
   if (newOrder.join("\u0000") === currentOrder.join("\u0000")) return; // 顺序未变化
 
-  const prevOrder = [...sortOrder];
   sortOrder = newOrder;
   render();
-
-  try {
-    await bridge.apiPost("save-sort-order", { order: sortOrder });
-    showToast(t("sortSaved"), "success");
-  } catch (err) {
-    sortOrder = prevOrder;
-    render();
-    showToast(t("sortFailed") + err.message, "error");
-  }
+  scheduleSidebarPersist(); // F4: 防抖持久化（含 hidden 列表）
 }
 
 /** 重绘侧栏列表（与主视图共享 allSettings + sortOrder + hiddenPlugins） */
@@ -556,9 +676,31 @@ function renderSidebar() {
     handle.title = t("dragHint");
     handle.textContent = "\u2261"; // ≡
 
+    // 侧边栏两行名称：第一行 display name（或去前缀短名），第二行完整插件名
+    const nameBox = document.createElement("div");
+    nameBox.className = "sidebar-item-text";
+
     const name = document.createElement("span");
     name.className = "sidebar-item-name";
-    name.textContent = getDisplayName(settings[0]);
+    const display = settings[0].display_name;
+    if (display && display !== pluginName) {
+      name.textContent = display;
+      name.title = display;
+    } else {
+      // 无 display_name 或与插件名相同时，第一行显示去掉 astrbot_plugin_ 前缀的短名
+      const short = pluginName.startsWith("astrbot_plugin_")
+        ? pluginName.slice("astrbot_plugin_".length)
+        : pluginName;
+      name.textContent = short;
+      name.title = short;
+    }
+
+    const idEl = document.createElement("span");
+    idEl.className = "sidebar-item-id";
+    idEl.textContent = pluginName;
+    idEl.title = pluginName;
+
+    nameBox.append(name, idEl);
 
     const eyeBtn = document.createElement("button");
     eyeBtn.className = "sidebar-item-eye";
@@ -569,7 +711,7 @@ function renderSidebar() {
       toggleHidden(pluginName);
     });
 
-    item.append(handle, name, eyeBtn);
+    item.append(handle, nameBox, eyeBtn);
 
     // 点击名称区域跳转（眼睛/拖拽手柄除外）
     item.addEventListener("click", (e) => {
@@ -616,8 +758,8 @@ $("#sidebarCloseBtn").addEventListener("click", closeSidebar);
 sidebarBackdrop.addEventListener("click", closeSidebar);
 
 // Events
-$("#refreshBtn").addEventListener("click", loadAll);
-$("#retryBtn").addEventListener("click", loadAll);
+$("#refreshBtn").addEventListener("click", () => loadAll(true)); // F1: force=1 绕过后端扫描缓存
+$("#retryBtn").addEventListener("click", () => loadAll());
 $("#saveBtn").addEventListener("click", saveAll);
 
 // Quick Switch Dialog
@@ -634,7 +776,11 @@ function openQuickSwitch() {
     if (s.current_value) uniqueModels.add(s.current_value);
   }
 
-  currentModelSelect.innerHTML = `<option value="">${t("selectCurrent")}</option>`;
+  currentModelSelect.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = t("selectCurrent");
+  currentModelSelect.appendChild(placeholder);
   for (const m of uniqueModels) {
     const opt = document.createElement("option");
     opt.value = m;
@@ -812,8 +958,10 @@ setAllDialog.addEventListener("click", (e) => {
   if (e.target === setAllDialog) closeSetAll();
 });
 
-// 监听 WebUI 语言/主题切换（官方 onContext 模式）
-bridge.onContext(() => {
+// 监听 WebUI 语言/主题切换（官方 onContext 模式；回调会立即触发一次并携带当前 context）
+bridge.onContext((ctx) => {
+  // C1: 语言变化时同步 <html lang>（BCP47）
+  if (ctx && ctx.locale) currentLocale = ctx.locale;
   applyLanguage();
   if (allSettings.length > 0) {
     render(); // render() 内部会同步重绘侧栏
