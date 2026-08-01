@@ -5,12 +5,17 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.2.4-blue" alt="version">
-  <img src="https://img.shields.io/badge/license-AGPL--3.0-green" alt="license">
-  <img src="https://img.shields.io/badge/AstrBot->=4.26.0-orange" alt="AstrBot version">
+  <img src="https://img.shields.io/badge/version-1.2.4-blue?style=flat" alt="version">
+  <img src="https://img.shields.io/badge/license-AGPL--3.0-green?style=flat" alt="license">
+  <img src="https://img.shields.io/badge/python-3.10+-blue?style=flat" alt="python">
+  <img src="https://img.shields.io/badge/AstrBot->=4.26.0-orange?style=flat" alt="AstrBot version">
 </p>
 
 统一管理所有插件的 LLM 模型配置，支持单独替换、一键设置、插件排序、侧边栏导航、中英文切换。
+
+<p align="center">
+  <img src="https://count.getloli.com/@astrbot_plugin_model_manager?theme=moebooru" alt="Moe Counter">
+</p>
 
 ## 功能特性
 
