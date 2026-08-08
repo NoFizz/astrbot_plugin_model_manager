@@ -1,1 +1,1 @@
-# No extra dependencies required
+pyyaml
