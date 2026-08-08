@@ -8,7 +8,6 @@
   <img src="https://img.shields.io/badge/version-1.4.1-blue?style=flat" alt="version">
   <img src="https://img.shields.io/badge/license-AGPL--3.0-green?style=flat" alt="license">
   <img src="https://img.shields.io/badge/python-3.10+-blue?style=flat" alt="python">
-  <img src="https://img.shields.io/badge/AstrBot-%3E%3D4.17.0-orange?style=flat" alt="AstrBot version">
 </p>
 
 <p align="center">统一管理所有插件的 LLM 模型配置，支持单独替换、一键设置、插件排序、侧边栏导航、中英文切换。</p>
@@ -28,7 +27,6 @@
 - [界面预览](#界面预览)
 - [安装](#安装)
 - [环境要求](#环境要求)
-- [支持平台](#支持平台)
 - [配置说明](#配置说明)
 - [使用示例](#使用示例)
 - [维护者](#维护者)
@@ -89,12 +87,7 @@
 ## 环境要求
 
 - Python >= 3.10
-- AstrBot >= 4.17.0
 - pyyaml
-
-## 支持平台
-
-仅支持 **aiocqhttp**（OneBot QQ）。
 
 ## 配置说明
 
