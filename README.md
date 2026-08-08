@@ -1,28 +1,39 @@
 <h1 align="center">模型管理器</h1>
 
 <p align="center">
-  <img src="logo.png" width="128" height="128" alt="模型管理器 logo">
+  <img src="./logo.png" width="128" height="128" alt="模型管理器">
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-1.4.1-blue?style=flat" alt="version">
   <img src="https://img.shields.io/badge/license-AGPL--3.0-green?style=flat" alt="license">
   <img src="https://img.shields.io/badge/python-3.10+-blue?style=flat" alt="python">
+  <img src="https://img.shields.io/badge/AstrBot-%3E%3D4.17.0-orange?style=flat" alt="AstrBot version">
 </p>
 
-<p align="center">
-  统一管理所有插件的 LLM 模型配置，支持单独替换、一键设置、插件排序、侧边栏导航、中英文切换。
-</p>
+<p align="center">统一管理所有插件的 LLM 模型配置，支持单独替换、一键设置、插件排序、侧边栏导航、中英文切换。</p>
 
 <p align="center">
   <img src="https://count.getloli.com/@astrbot_plugin_model_manager?theme=moebooru" alt="Moe Counter">
 </p>
 
-## 界面预览
+## 功能简介
 
-| 浅色模式 | 深色模式 |
-|---|---|
-| ![浅色模式](screenshots/light-mode.png) | ![深色模式](screenshots/dark-mode.png) |
+模型管理器把所有插件的 LLM 模型配置集中到一个页面里，不用挨个插件去翻设置。想给某个插件换模型，或者把所有插件一次性统一到同一个模型，打开 Model Manager 页面几步就能完成。还支持调整插件显示顺序、隐藏不常用的插件，模型失效时会醒目提醒。页面自动跟随 AstrBot 的语言设置，中英文随意切换。
+
+## 内容列表
+
+- [功能简介](#功能简介)
+- [功能特性](#功能特性)
+- [界面预览](#界面预览)
+- [安装](#安装)
+- [环境要求](#环境要求)
+- [支持平台](#支持平台)
+- [配置说明](#配置说明)
+- [使用示例](#使用示例)
+- [维护者](#维护者)
+- [如何贡献](#如何贡献)
+- [许可证](#许可证)
 
 ## 功能特性
 
@@ -33,6 +44,12 @@
 - **自动排序**：自定义插件的显示顺序，排序结果自动保存
 - **折叠隐藏**：隐藏不常用的插件，让页面更清爽
 - **悬空模型提示**：配置的模型已不存在时给出醒目提示，避免悄悄失效
+
+## 界面预览
+
+| 浅色模式 | 深色模式 |
+|---|---|
+| ![浅色模式](screenshots/light-mode.png) | ![深色模式](screenshots/dark-mode.png) |
 
 ## 安装
 
@@ -68,6 +85,16 @@
 
 - 在 WebUI 插件管理中确认插件状态为"已启用"且无报错。
 - 进入插件详情页，确认 Model Manager 页面可正常打开。
+
+## 环境要求
+
+- Python >= 3.10
+- AstrBot >= 4.17.0
+- pyyaml
+
+## 支持平台
+
+仅支持 **aiocqhttp**（OneBot QQ）。
 
 ## 配置说明
 
@@ -106,12 +133,14 @@
 
 界面语言跟随 AstrBot WebUI 的全局语言设置。在 WebUI **设置** 中切换语言后，本页面会自动切换，无需刷新。
 
-## 许可证
-
-本项目基于 [AGPL-3.0](LICENSE) 许可证开源。
-
-## 作者
+## 维护者
 
 **NoFizz** · [GitHub](https://github.com/NoFizz)
 
-如遇问题或有功能建议，欢迎提交 [Issue](https://github.com/NoFizz/astrbot_plugin_model_manager/issues)。
+## 如何贡献
+
+欢迎提交 [Issue](https://github.com/NoFizz/astrbot_plugin_model_manager/issues) 反馈问题或功能建议，也接受 [Pull Request](https://github.com/NoFizz/astrbot_plugin_model_manager/pulls)。
+
+## 许可证
+
+本项目基于 [AGPL-3.0](LICENSE) 许可证开源。
