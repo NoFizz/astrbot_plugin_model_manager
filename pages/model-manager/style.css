@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
-   NoFizz Plugin Design System — Bilibili Web (white / blue #00AEEC / pink #FB7299)  v1.4.1
-    浅色: Light default — 白底 + 蓝主(#00AEEC) + 粉强调(#FB7299)
-    深色: Soft dark — 深灰底(#18191C) + 蓝/粉强调 + 白字
+   NoFizz Plugin Design System — Bilibili Web (white / blue #00AEEC / pink #FF6699)  v1.5.0
+    浅色: Light default — 白底 + 蓝主(#00AEEC) + 粉强调(#FF6699)
+    深色: Soft dark — 深灰底(#17181A) + 蓝/粉强调 + 白字
     圆角: 操作元素 4px / 大卡片 8px / toast 6px | 间距: 8px 基础单位 | 动效: 60ms ease-out
    ═══════════════════════════════════════════════════════════ */
 
@@ -32,35 +32,35 @@
   --text-lg: 16px;
   --text-xl: 20px;
 
-  /* Light — Bilibili Web（画布 / 表面 / 蓝 #00AEEC / 粉 #FB7299） */
-  --bg: #F1F2F3;                    /* 画布 */
-  --card-bg: #FFFFFF;               /* 表面 */
+  /* Light — Bilibili Web 官方色卡（画布 / 表面 / 蓝 #00AEEC / 粉 #FF6699） */
+  --bg: #FFFFFF;                    /* 页面背景 = 官方 --bg1 */
+  --card-bg: #FFFFFF;               /* 卡片背景 = 官方 --bg1_float */
   --card-bg-elevated: #FFFFFF;      /* 抬升表面（侧栏等） */
-  --surface-hover: #F6F7F8;         /* 表面悬停 */
-  --text: #18191C;
-  --text-secondary: #61666D;
-  --text-muted: #9499A0;
-  --text-disabled: #C9CCD0;
-  --primary: #00AEEC;
-  --primary-hover: #00A1E9;
-  --accent: #FB7299;
-  --accent-hover: #FC8BAB;
-  --accent-dim: #FB7299;             /* 侧边栏按钮底色：浅色=原粉 */
-  --accent-pressed: #E85C85;
-  --accent-soft: #FEEBF1;           /* 粉色淡底 */
-  --subtle: var(--surface-hover);   /* 行/控件悬停底色 */
-  --danger: #F6554D;
-  --danger-soft: #FDECEB;
-  --success: #00A75D;
-  --success-soft: #E8F7EF;
-  --warning: #FF9500;
-  --warning-soft: #FFF4E0;
-  --border: #E3E5E7;
+  --surface-hover: #F6F7F8;         /* 表面悬停 = 官方 --bg2 */
+  --text: #18191C;                  /* 正文 = 官方 --text1 */
+  --text-secondary: #61666D;        /* 次要文字 = 官方 --text2 */
+  --text-muted: #9499A0;            /* 弱化文字 = 官方 --text3 */
+  --text-disabled: #C9CCD0;         /* 最弱文字 = 官方 --text4 */
+  --primary: #00AEEC;               /* 品牌蓝 = 官方 --brand_blue */
+  --primary-hover: #40C5F1;         /* 品牌蓝 hover = 官方 --v_brand_blue_hover */
+  --accent: #FF6699;                /* 品牌粉 = 官方 --brand_pink */
+  --accent-hover: #FF8CB0;           /* 品牌粉 hover = 官方 --v_brand_pink_hover */
+  --accent-dim: #FF6699;            /* 侧边栏按钮底色：浅色=原粉 */
+  --accent-pressed: #E84B85;        /* 品牌粉 active = 官方 --v_brand_pink_active */
+  --accent-soft: #FFECF1;           /* 浅粉底 = 官方 --brand_pink_thin */
+  --subtle: #F1F2F3;                /* 次面 = 官方 --graph_bg_regular / --bg3 */
+  --danger: #F85A54;                /* 警示红 = 官方 --Re5 */
+  --danger-soft: #FEECEA;           /* 浅红底 = 官方 --Re1 */
+  --success: #2AC864;               /* 成功绿 = 官方 --Gr5 */
+  --success-soft: #E8F7EF;           /* 浅绿底 */
+  --warning: #FA9600;               /* 警告橙 = 官方 --text_notice / --Ye6 */
+  --warning-soft: #FFF4E0;           /* 浅橙底 */
+  --border: #E3E5E7;                /* 边框 = 官方 --line_regular */
   --border-soft: #EAEDEF;           /* 发丝线 */
-  --card-border: #E3E5E7;
-  --primary-glow: rgba(0, 174, 236, 0.22);
-  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.04);
-  --shadow-hover: 0 8px 16px -4px rgb(0 0 0 / 0.12), 0 4px 8px -4px rgb(0 0 0 / 0.06);
+  --card-border: #E3E5E7;           /* 卡片边框 = 官方 --line_regular */
+  --primary-glow: rgba(0, 174, 236, 0.30);  /* 蓝色 glow（focus 光晕） */
+  --shadow: 0 1px 0 rgba(0, 0, 0, 0.04);    /* 卡片默认投影（浅色） */
+  --shadow-hover: 0 3px 6px rgba(0, 0, 0, 0.12);  /* 卡片 hover / 浮层投影 */
   --shadow-lg: 0 12px 24px -6px rgb(0 0 0 / 0.16), 0 6px 12px -4px rgb(0 0 0 / 0.08);
   --scrim: rgba(0, 0, 0, 0.45);     /* 遮罩层 */
   --on-primary: #FFFFFF;            /* 主色之上的文字 */
@@ -74,45 +74,45 @@
 }
 
 [data-theme="dark"] {
-  /* Soft dark — Bilibili（深底 / 蓝 / 粉，全部为变量定义） */
-  --bg: #1A1A1A;
-  --card-bg: #2A2A2D;
-  --card-bg-elevated: #222225;
-  --surface-hover: #333336;
-  --text: #EEEEEE;
-  --text-secondary: #AAAAAA;
-  --text-muted: #808080;
-  --text-disabled: #6B6F76;
-  --primary: #4FB8DE;
-  --primary-hover: #6BC8E8;
-  --accent: #FC9EB9;
-  --accent-hover: #FFB3C9;
-  --accent-pressed: #F591AE;
+  /* Dark — Bilibili 官方独立设计值（非浅色反转） */
+  --bg: #17181A;                    /* 深色页面背景 = 官方 --bg1（深） */
+  --card-bg: #242628;               /* 深色卡片 = 官方 --bg1_float（深） */
+  --card-bg-elevated: #242628;      /* 抬升表面 */
+  --surface-hover: #232527;         /* 深色次面 = 官方 --graph_bg_regular（深） */
+  --text: #E7E9EB;                  /* 深色正文 = 官方 --text1（深） */
+  --text-secondary: #A2A7AE;        /* = 官方 --text2（深） */
+  --text-muted: #757A81;            /* = 官方 --text3（深） */
+  --text-disabled: #46494D;         /* = 官方 --text4（深） */
+  --primary: #0087BD;               /* 深色品牌蓝（官方独立设计值）= 官方 --brand_blue（深） */
+  --primary-hover: #40C5F1;         /* 深色 hover 沿用浅色值 */
+  --accent: #D44E7D;                /* 深色品牌粉（官方独立设计值）= 官方 --brand_pink（深） */
+  --accent-hover: #FF8CB0;          /* 深色 hover 沿用浅色值 */
+  --accent-pressed: #E84B85;        /* 品牌粉 active */
   --accent-dim: #8C5A68;             /* 深色下侧边栏按钮变灰暗（避免亮粉刺眼） */
-  --accent-soft: rgba(252, 158, 185, 0.15);
-  --subtle: var(--surface-hover);
-  --danger: #FF6B81;
-  --danger-soft: rgba(246, 85, 77, 0.15);
-  --success: #3FD28B;
-  --success-soft: rgba(63, 210, 139, 0.15);
-  --warning: #FFA940;
-  --warning-soft: rgba(255, 149, 0, 0.15);
-  --border: #3A3A3D;
-  --border-soft: #333336;
-  --card-border: #3A3A3D;
-  --primary-glow: rgba(79, 184, 222, 0.30);
-  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.45), 0 2px 4px -2px rgb(0 0 0 / 0.30);
-  --shadow-hover: 0 8px 16px -4px rgb(0 0 0 / 0.50), 0 4px 8px -4px rgb(0 0 0 / 0.35);
+  --accent-soft: #2F1A22;            /* 深色粉底 = 官方 --brand_pink_thin（深） */
+  --subtle: var(--surface-hover);   /* 行/控件悬停底色 */
+  --danger: #D1403E;                 /* 深色警示红 = 官方 --Re5（深） */
+  --danger-soft: #2E1617;            /* 深色红底 = 官方 --Re1（深） */
+  --success: #1FA251;                /* 深色成功绿 = 官方 --Gr5（深） */
+  --success-soft: rgba(31, 162, 81, 0.15);
+  --warning: #E19C2C;                /* 深色警告橙 = 官方 --text_notice（深） */
+  --warning-soft: rgba(225, 156, 44, 0.15);
+  --border: #2F3134;                 /* 深色边框 = 官方 --line_regular（深） */
+  --border-soft: #232527;
+  --card-border: #2F3134;            /* = 官方 --line_regular（深） */
+  --primary-glow: rgba(0, 135, 189, 0.35);  /* 深色 glow 跟随深色品牌蓝 */
+  --shadow: none;                    /* 深色不用投影，靠灰度分层 */
+  --shadow-hover: 0 3px 6px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 12px 24px -6px rgb(0 0 0 / 0.60), 0 6px 12px -4px rgb(0 0 0 / 0.40);
-  --scrim: rgba(0, 0, 0, 0.60);
-  --on-primary: #0A0A0B;
-  --on-accent: #FFFFFF;             /* 深浅色恒为白，不随主题变黑 */
-  --on-primary-weak: rgba(10, 10, 11, 0.35);
-  --header-bg: rgba(26, 26, 26, 0.78);
-  --scrollbar-thumb: #3A3A3D;
-  --scrollbar-thumb-hover: #55555A;
-  --select-option-bg: #2A2A2D;
-  --select-option-color: #EEEEEE;
+  --scrim: rgba(0, 0, 0, 0.60);     /* 遮罩层 */
+  --on-primary: #FFFFFF;            /* 主色之上的文字：深浅色恒为白 */
+  --on-accent: #FFFFFF;             /* 粉色按钮上的文字：深浅色恒为白 */
+  --on-primary-weak: rgba(255, 255, 255, 0.35);
+  --header-bg: rgba(23, 24, 26, 0.85);
+  --scrollbar-thumb: #2F3134;
+  --scrollbar-thumb-hover: #46494D;
+  --select-option-bg: #242628;
+  --select-option-color: #E7E9EB;
 }
 
 /* ── Reset & Base ────────────────────────────────────────── */

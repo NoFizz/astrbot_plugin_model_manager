@@ -1,4 +1,4 @@
-"""astrbot_plugin_model_manager v1.4.1 - Unified Model Manager
+"""astrbot_plugin_model_manager v1.5.0 - Unified Model Manager
 
 Follows official Plugin Pages docs exactly:
   - Route: /{PLUGIN_NAME}/{endpoint}
@@ -31,7 +31,7 @@ except ImportError:
 
 
 PLUGIN_NAME = "astrbot_plugin_model_manager"
-PLUGIN_VERSION = "1.4.1"
+PLUGIN_VERSION = "1.5.0"
 MAX_FIELD_PATH_LENGTH = 500
 MAX_SCHEMA_DEPTH = 10
 MAX_BATCH_SIZE = 100
@@ -110,7 +110,7 @@ def _sanitize_value(val) -> str | None:
     "astrbot_plugin_model_manager",
     "NoFizz",
     "Unified LLM model configuration manager",
-    "1.4.1",
+    "1.5.0",
 )
 class ModelManagerPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig | None = None):
@@ -159,7 +159,7 @@ class ModelManagerPlugin(Star):
             ["POST"],
             "Save plugin sort order",
         )
-        logger.info(f"[{PLUGIN_NAME}] v1.4.1 loaded")
+        logger.info(f"[{PLUGIN_NAME}] v1.5.0 loaded")
 
     async def terminate(self):
         """插件卸载/停用时清理资源。"""
@@ -169,6 +169,42 @@ class ModelManagerPlugin(Star):
         self._config_dir_resolved = False
         self._config_dir_cache = None
         logger.info(f"[{PLUGIN_NAME}] unloaded")
+
+    async def _reload_plugins(self, plugin_names: list[str]) -> dict[str, str]:
+        """重载指定插件，使其重新读取已写入磁盘的配置文件。
+
+        通过 AstrBot 内部的 PluginManager.reload(specified_plugin_name) 实现。
+        PluginManager 在初始化时将自身引用挂载到 context._star_manager。
+
+        Args:
+            plugin_names: 需要重载的插件名列表。
+
+        Returns:
+            {plugin_name: "ok" | error_message} 字典。
+        """
+        results: dict[str, str] = {}
+        star_manager = getattr(self.context, "_star_manager", None)
+        if star_manager is None or not hasattr(star_manager, "reload"):
+            logger.warning(
+                f"[{PLUGIN_NAME}] star_manager not available, "
+                "config changes require manual plugin reload"
+            )
+            return dict.fromkeys(plugin_names, "reload_unavailable")
+        for pn in plugin_names:
+            try:
+                success, err_msg = await star_manager.reload(pn)
+                if success:
+                    results[pn] = "ok"
+                    logger.info(f"[{PLUGIN_NAME}] Reloaded plugin '{pn}'")
+                else:
+                    results[pn] = err_msg or "reload failed"
+                    logger.warning(
+                        f"[{PLUGIN_NAME}] Failed to reload '{pn}': {err_msg}"
+                    )
+            except Exception as e:
+                results[pn] = str(e)
+                logger.error(f"[{PLUGIN_NAME}] Reload error for '{pn}': {e}")
+        return results
 
     def _get_config_dir(self) -> pathlib.Path | None:
         """获取 AstrBot 配置目录（带缓存）。"""
@@ -312,8 +348,21 @@ class ModelManagerPlugin(Star):
             return None
 
     def _write_json_file(self, path: pathlib.Path, data: dict | list) -> None:
-        """原子写入 JSON 文件（先写临时文件再 rename，防止写入中断导致损坏）。"""
+        """原子写入 JSON 文件（先写临时文件再 rename，防止写入中断导致损坏）。
+
+        写入前清理同目录下可能因上次进程崩溃遗留的同类 .tmp.* 孤儿文件。
+        """
         content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+        # 清理上次崩溃可能遗留的孤儿临时文件（path.json.tmp.* → 实际是 path.tmp.* 因为 with_suffix 替换了整个后缀）
+        stem = path.stem
+        try:
+            for stale in path.parent.glob(f"{stem}.tmp.*"):
+                try:
+                    stale.unlink(missing_ok=True)
+                except OSError:
+                    pass
+        except OSError:
+            pass
         tmp = path.with_suffix(f".tmp.{os.getpid()}.{threading.get_ident()}")
         tmp.write_text(content, encoding="utf-8")
         try:
@@ -447,9 +496,10 @@ class ModelManagerPlugin(Star):
         """同步扫描所有插件目录的 provider 配置字段（含全部阻塞式文件系统操作）。
 
         由 _scan_all_plugins 通过 asyncio.to_thread 调用，避免阻塞事件循环。
+        同时读取排序数据，避免额外的 to_thread 调度开销。
 
         Returns:
-            (settings, scan_errors) 元组。
+            (settings, scan_errors) 元组（已按 sortOrder 排序）。
         """
         plugins_dir = self._get_plugins_dir()
         cfg_dir = self._get_config_dir()
@@ -518,12 +568,23 @@ class ModelManagerPlugin(Star):
                     scan_errors.append({"plugin": plugin_name, "error": str(e)})
                     continue
 
+        # 在同一个 to_thread 调用中读取排序数据并排序，避免额外的线程调度
+        sort_data = self._read_sort_order()
+        order = sort_data.get("order", []) if isinstance(sort_data, dict) else []
+        if order:
+            order_map = {name: i for i, name in enumerate(order)}
+            results = sorted(
+                results, key=lambda x: order_map.get(x["plugin_name"], 9999)
+            )
         return results, scan_errors
 
     async def _scan_all_plugins(
         self, force: bool = False
     ) -> tuple[list[dict], list[dict]]:
         """扫描所有插件的 provider 配置字段（带 TTL 缓存）。返回 (settings, errors)。
+
+        扫描结果已在 _scan_all_plugins_sync 内按 sortOrder 排序，缓存中存储的也是
+        排序后的结果，因此缓存命中时无需重新读取排序文件或重新排序。
 
         Args:
             force: 为 True 时绕过 30 秒扫描缓存，强制重新扫描（结果仍会写回缓存）。
@@ -554,22 +615,17 @@ class ModelManagerPlugin(Star):
                     self._scan_cache = (results, scan_errors)
                     self._scan_cache_time = now
 
-        sort_data = await asyncio.to_thread(self._read_sort_order)
-        order = sort_data.get("order", []) if isinstance(sort_data, dict) else []
-        if order:
-            order_map = {name: i for i, name in enumerate(order)}
-            results = sorted(
-                results, key=lambda x: order_map.get(x["plugin_name"], 9999)
-            )
         return results, scan_errors
 
     def _get_all_providers(self) -> list[dict]:
         """获取所有可用的 LLM 提供商列表（同步方法，含文件系统操作，须在 to_thread 中调用）。
 
-        采用 3 层降级策略（均非官方公开 API，可能随版本变动）：
-          1. context.get_all_providers() — 较新版本提供的便捷方法
-          2. context.provider_manager.chat_providers — 内部管理器属性
+        采用 3 层降级策略：
+          1. context.get_all_providers() — 官方公开 API，返回 list[Provider]
+          2. context.provider_manager.provider_insts — 内部属性，list[Provider]
           3. 直接读取 abconf_*.json 配置文件 — 最底层 fallback
+
+        每层降级返回的 Provider 实例的 provider_config 均为 dict（已从源码确认）。
 
         Returns:
             提供商字典列表，每项含 id/model/type；全部降级失败时返回空列表。
@@ -606,15 +662,35 @@ class ModelManagerPlugin(Star):
             logger.debug(f"[{PLUGIN_NAME}] get_all_providers failed: {e}")
         try:
             pmgr = self.context.provider_manager
-            if pmgr and hasattr(pmgr, "chat_providers"):
-                return [
-                    {
-                        "id": pid,
-                        "model": getattr(prov, "model", "") or "",
-                        "type": getattr(prov, "provider_type", "") or "",
-                    }
-                    for pid, prov in pmgr.chat_providers.items()
-                ]
+            # provider_insts 是 list[Provider]（非 dict），与 tier 1 相同的处理逻辑
+            if pmgr and hasattr(pmgr, "provider_insts"):
+                result = []
+                for p in pmgr.provider_insts:
+                    pc = getattr(p, "provider_config", None)
+                    if pc is None:
+                        continue
+                    if hasattr(pc, "__dict__"):
+                        pc = {
+                            k: v for k, v in vars(pc).items() if not k.startswith("_")
+                        }
+                    elif not isinstance(pc, dict):
+                        continue
+                    pid = pc.get("id", "")
+                    if not pid:
+                        continue
+                    ptype = pc.get("type", "") or ""
+                    if hasattr(ptype, "value"):
+                        ptype = ptype.value
+                    result.append(
+                        {
+                            "id": pid,
+                            "model": pc.get("model", "")
+                            or (getattr(p, "model", "") or ""),
+                            "type": str(ptype),
+                        }
+                    )
+                if result:
+                    return result
         except (OSError, ValueError, KeyError, AttributeError) as e:
             logger.warning(f"[{PLUGIN_NAME}] provider_manager fallback failed: {e}")
         cfg_dir = self._get_config_dir()
@@ -694,23 +770,49 @@ class ModelManagerPlugin(Star):
             return error_response("Plugin unloaded", status_code=503)
         payload = await request.json(default={})
         if not isinstance(payload, dict):
-            return error_response("请求体格式错误：必须是 JSON 对象", status_code=400)
-        cfg_dir = self._get_config_dir()
-        if not cfg_dir:
-            return error_response("Config directory not available", status_code=500)
-        pn = _sanitize_plugin_name(payload.get("plugin_name", ""), cfg_dir)
-        fp = _sanitize_field_path(payload.get("field_path", ""))
-        val = _sanitize_value(payload.get("value", ""))
-        if not pn or not fp or val is None:
+            return error_response(
+                "Invalid request body: must be a JSON object", status_code=400
+            )
+        # 先校验输入格式（不依赖 cfg_dir），再在锁内获取 cfg_dir 避免竞态
+        raw_pn = payload.get("plugin_name", "")
+        raw_fp = payload.get("field_path", "")
+        raw_val = payload.get("value", "")
+        # 格式预检：plugin_name 和 field_path 的正则校验不依赖 cfg_dir
+        if not isinstance(raw_pn, str) or not _PLUGIN_NAME_RE.match(raw_pn):
             return error_response(
                 "Invalid plugin_name, field_path, or value", status_code=400
             )
-        logger.debug(f"[{PLUGIN_NAME}] Update: {pn}/{fp}")
+        fp = _sanitize_field_path(raw_fp)
+        val = _sanitize_value(raw_val)
+        if not fp or val is None:
+            return error_response(
+                "Invalid plugin_name, field_path, or value", status_code=400
+            )
+        logger.debug(f"[{PLUGIN_NAME}] Update: {raw_pn}/{fp}")
         try:
             async with self._write_lock:
+                cfg_dir = self._get_config_dir()
+                if not cfg_dir:
+                    return error_response(
+                        "Config directory not available", status_code=500
+                    )
+                # 锁内重新做路径遍历校验（依赖 cfg_dir）
+                pn = _sanitize_plugin_name(raw_pn, cfg_dir)
+                if not pn:
+                    return error_response("Invalid plugin_name", status_code=400)
                 if self._update_plugin_config(pn, fp, val):
                     self._scan_cache = None  # 写入后使缓存失效
-                    return json_response({"status": "ok", "data": {"updated": True}})
+                    # 锁外重载插件使配置生效
+                    reload_result = await self._reload_plugins([pn])
+                    return json_response(
+                        {
+                            "status": "ok",
+                            "data": {
+                                "updated": True,
+                                "reloaded": reload_result,
+                            },
+                        }
+                    )
             return error_response("Write failed", status_code=500)
         except Exception as e:
             logger.error(f"[{PLUGIN_NAME}] api_update_provider: {e}", exc_info=True)
@@ -721,7 +823,9 @@ class ModelManagerPlugin(Star):
             return error_response("Plugin unloaded", status_code=503)
         payload = await request.json(default={})
         if not isinstance(payload, dict):
-            return error_response("请求体格式错误：必须是 JSON 对象", status_code=400)
+            return error_response(
+                "Invalid request body: must be a JSON object", status_code=400
+            )
         updates = payload.get("updates", [])
         if not isinstance(updates, list):
             return error_response("updates must be a list", status_code=400)
@@ -750,18 +854,20 @@ class ModelManagerPlugin(Star):
         )
         ok_count, fails = 0, []
         written = False
+        reloaded_plugins: list[str] = []
         async with self._write_lock:
             for pn, fields in grouped.items():
                 cf = cfg_dir / f"{pn}_config.json"
                 raw = self._read_json_file(cf)
                 pc = raw if isinstance(raw, dict) else {}
                 write_needed = False
-                plugin_ok = 0  # 该插件实际成功设置的字段数，用于写入失败时精确回退
+                # 记录该插件实际成功设置的字段路径，用于写入失败时精确报告
+                succeeded_fields: list[str] = []
                 for fp, val in fields:
                     try:
                         if self._set_nested_value(pc, fp, val):
                             ok_count += 1
-                            plugin_ok += 1
+                            succeeded_fields.append(fp)
                             write_needed = True
                         else:
                             fails.append(f"{pn}/{fp}: path not reachable")
@@ -771,20 +877,36 @@ class ModelManagerPlugin(Star):
                     try:
                         self._write_json_file(cf, pc)
                         written = True
+                        reloaded_plugins.append(pn)
                     except Exception as e:
                         logger.error(
                             f"[{PLUGIN_NAME}] Batch write failed for {pn}: {e}",
                             exc_info=True,
                         )
                         # 仅回退该插件实际成功设置的字段数（非全部字段数），
-                        # 因为部分字段可能在 _set_nested_value 阶段已失败、未计入 ok_count
-                        ok_count -= plugin_ok
-                        fails.extend(f"{pn}/{fp}: write error: {e}" for fp, _ in fields)
+                        # 并仅对成功字段报告写入错误（已在 _set_nested_value 阶段
+                        # 失败的字段已有对应的失败条目，不应重复报告）
+                        ok_count -= len(succeeded_fields)
+                        fails.extend(
+                            f"{pn}/{fp}: write error: {e}" for fp in succeeded_fields
+                        )
             if written:
                 self._scan_cache = None  # 写入后使缓存失效
 
+        # 锁外重载所有已成功写入配置的插件，使改动即时生效
+        reload_result = {}
+        if reloaded_plugins:
+            reload_result = await self._reload_plugins(reloaded_plugins)
+
         return json_response(
-            {"status": "ok", "data": {"success": ok_count, "failures": fails}}
+            {
+                "status": "ok",
+                "data": {
+                    "success": ok_count,
+                    "failures": fails,
+                    "reloaded": reload_result,
+                },
+            }
         )
 
     def _get_sort_order_file(self) -> pathlib.Path | None:
@@ -855,19 +977,22 @@ class ModelManagerPlugin(Star):
             hidden = payload.get("hidden", [])
         else:
             return error_response(
-                "请求体格式错误：必须是数组或 JSON 对象", status_code=400
+                "Invalid request body: must be an array or JSON object",
+                status_code=400,
             )
         if not isinstance(order, list) or not isinstance(hidden, list):
-            return error_response("order 和 hidden 必须是数组", status_code=400)
+            return error_response("order and hidden must be arrays", status_code=400)
         for entry in order:
             if not isinstance(entry, str) or not _PLUGIN_NAME_RE.match(entry):
                 return error_response(
-                    f"排序列表包含非法插件名：{entry!r}", status_code=400
+                    f"Invalid plugin name in sort list: {entry!r}",
+                    status_code=400,
                 )
         for entry in hidden:
             if not isinstance(entry, str) or not _PLUGIN_NAME_RE.match(entry):
                 return error_response(
-                    f"隐藏列表包含非法插件名：{entry!r}", status_code=400
+                    f"Invalid plugin name in hidden list: {entry!r}",
+                    status_code=400,
                 )
         try:
             await asyncio.to_thread(

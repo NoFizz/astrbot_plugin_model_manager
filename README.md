@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.4.1-blue?style=flat" alt="version">
+  <img src="https://img.shields.io/badge/version-1.5.0-blue?style=flat" alt="version">
   <img src="https://img.shields.io/badge/license-AGPL--3.0-green?style=flat" alt="license">
   <img src="https://img.shields.io/badge/python-3.10+-blue?style=flat" alt="python">
 </p>
@@ -95,12 +95,14 @@
 
 **工作原理**：插件会自动扫描所有已安装插件的 `_conf_schema.json`，找出带有 `_special: select_provider*` 标记的配置项（即模型选择器），将它们集中展示在 Model Manager 页面中。修改后直接写入对应插件的配置文件，无需改动任何插件代码。
 
+**即时生效**：保存修改后，被修改配置的插件会自动热重载，模型变更即时生效，无需手动重载插件或重启 AstrBot。如果自动重载失败（如插件代码有语法错误），页面会显示重载失败提示，此时请手动在插件管理中重载对应插件。
+
 ## 使用示例
 
 1. 进入本插件的详情页，打开 **Model Manager** 页面
 2. 页面会自动扫描并列出所有插件的模型配置项
 3. 在每个下拉框中选择想分配的模型
-4. 点击右上角 **保存**，一次性保存所有修改
+4. 点击右上角 **保存**，一次性保存所有修改，被修改的插件会自动重载使配置即时生效
 
 ### 单独替换
 

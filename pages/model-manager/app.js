@@ -1,4 +1,4 @@
-// Model Manager v1.4.1 — follows official Plugin Pages docs exactly
+// Model Manager v1.5.0 — follows official Plugin Pages docs exactly
 // NO localStorage (sandboxed iframe forbids it)
 // Theme managed by bridge SDK automatically
 // i18n via official bridge.t() + onContext() API
@@ -67,8 +67,7 @@ const enFallback = {
   saveFailed: "Save failed: ",
   switchFailed: "Switch failed: ",
   setAllFailed: "Set failed: ",
-  sortSaved: "Sort order saved",
-  sortFailed: "Save sort order failed: ",
+  reloadPartial: ", reload failed for ",
   moveUp: "Move up",
   moveDown: "Move down",
   noPluginsHint: "Make sure other plugins use select_provider fields in their _conf_schema.json",
@@ -356,25 +355,14 @@ async function movePlugin(pluginName, direction) {
   const i = currentOrder.indexOf(pluginName);
   const j = currentOrder.indexOf(visible[vTarget]);
 
-  // 保存旧顺序用于失败回滚
-  const prevOrder = [...sortOrder];
-
   // Swap
   [currentOrder[i], currentOrder[j]] = [currentOrder[j], currentOrder[i]];
 
   sortOrder = currentOrder;
   render();
 
-  // Save sort order
-  try {
-    await bridge.apiPost("save-sort-order", { order: sortOrder });
-    showToast(t("sortSaved"), "success");
-  } catch (err) {
-    // 保存失败，回滚到之前的顺序
-    sortOrder = prevOrder;
-    render();
-    showToast(t("sortFailed") + err.message, "error");
-  }
+  // 通过统一的防抖持久化路径保存（含 order + hidden），避免并发写入竞争和数据丢失
+  scheduleSidebarPersist();
 }
 
 function buildRow(s) {
@@ -488,6 +476,23 @@ function buildRow(s) {
   return row;
 }
 
+/** 构建批量操作结果 toast 消息（统一处理 success/failures/reloaded 三种状态） */
+function buildBatchToast(prefix, ok, fails, reloaded, suffixParts) {
+  const failList = fails || [];
+  const reloadMap = reloaded || {};
+  const reloadFails = Object.entries(reloadMap).filter(([, v]) => v !== "ok");
+  if (failList.length === 0 && reloadFails.length === 0) {
+    return { msg: prefix + ok + (suffixParts || ""), type: "success" };
+  } else if (reloadFails.length > 0) {
+    return {
+      msg: prefix + ok + (suffixParts || "") + t("reloadPartial") + reloadFails.length,
+      type: "error",
+    };
+  } else {
+    return { msg: prefix + ok + t("failed") + failList.length, type: "error" };
+  }
+}
+
 // Save
 function updateSaveBtn() {
   const saveBtn = $("#saveBtn");
@@ -509,12 +514,8 @@ async function saveAll() {
   setBtnLoading(saveBtn, true);
   try {
     const res = await bridge.apiPost("batch", { updates: Array.from(changes.values()) });
-    const ok = res.success || 0;
-    const fails = res.failures || [];
-    showToast(
-      fails.length === 0 ? t("saved") + ok + t("changes") : t("saved") + ok + t("failed") + fails.length,
-      fails.length === 0 ? "success" : "error"
-    );
+    const toast = buildBatchToast(t("saved"), res.success || 0, res.failures, res.reloaded, t("changes"));
+    showToast(toast.msg, toast.type);
     await loadAll();
     setBtnLoading(saveBtn, false);
     updateSaveBtn();
@@ -839,14 +840,14 @@ async function confirmQuickSwitch() {
   setBtnLoading(dialogConfirmBtn, true);
   try {
     const res = await bridge.apiPost("batch", { updates });
-    const ok = res.success || 0;
-    const fails = res.failures || [];
-    showToast(
-      fails.length === 0
-        ? t("switchSuccess") + ok + t("switchSuccess2") + current + t("switchSuccess3") + newModel
-        : t("switchSuccess") + ok + t("failed") + fails.length,
-      fails.length === 0 ? "success" : "error"
+    const toast = buildBatchToast(
+      t("switchSuccess"),
+      res.success || 0,
+      res.failures,
+      res.reloaded,
+      t("switchSuccess2") + current + t("switchSuccess3") + newModel
     );
+    showToast(toast.msg, toast.type);
     closeQuickSwitch();
     await loadAll();
     setBtnLoading(dialogConfirmBtn, false);
@@ -854,7 +855,9 @@ async function confirmQuickSwitch() {
   } catch (err) {
     showToast(t("switchFailed") + err.message, "error");
     setBtnLoading(dialogConfirmBtn, false);
-    dialogConfirmBtn.disabled = false;
+    // 刷新预览（allSettings 可能在部分成功后已变化），避免基于陈旧数据重复提交
+    await loadAll();
+    updateSwitchPreview();
   }
 }
 
@@ -918,14 +921,14 @@ async function confirmSetAll() {
   setBtnLoading(setAllConfirmBtn, true);
   try {
     const res = await bridge.apiPost("batch", { updates });
-    const ok = res.success || 0;
-    const fails = res.failures || [];
-    showToast(
-      fails.length === 0
-        ? t("setAllSuccess") + ok + t("setAllSuccess2") + model
-        : t("setAllSuccess") + ok + t("failed") + fails.length,
-      fails.length === 0 ? "success" : "error"
+    const toast = buildBatchToast(
+      t("setAllSuccess"),
+      res.success || 0,
+      res.failures,
+      res.reloaded,
+      t("setAllSuccess2") + model
     );
+    showToast(toast.msg, toast.type);
     closeSetAll();
     await loadAll();
     setBtnLoading(setAllConfirmBtn, false);
@@ -933,7 +936,9 @@ async function confirmSetAll() {
   } catch (err) {
     showToast(t("setAllFailed") + err.message, "error");
     setBtnLoading(setAllConfirmBtn, false);
-    setAllConfirmBtn.disabled = false;
+    // 刷新预览（allSettings 可能在部分成功后已变化），避免基于陈旧数据重复提交
+    await loadAll();
+    updateSetAllPreview();
   }
 }
 
