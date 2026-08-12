@@ -1,130 +1,125 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 ## [1.5.0] - 2026-08-12
 
 ### Added
 
-- Auto-reload modified plugins after config write — changes take effect immediately without manual plugin reload or AstrBot restart
-- `_reload_plugins` method calls `PluginManager.reload(plugin_name)` via `context._star_manager`; gracefully degrades if unavailable
-- `reloaded` field in `update` / `batch` API responses reporting per-plugin reload status
-- `reloadPartial` i18n key for reload-failure toast messages
-- `buildBatchToast` helper unifying toast message construction across all three batch paths (save / quick-switch / set-all)
-- `CHANGELOG.md` with full project history from v1.0.0
+- 保存配置后自动热重载被修改的插件，改动即时生效，无需手动重载插件或重启 AstrBot
+- 新增 `_reload_plugins` 方法，通过 `context._star_manager` 调用 `PluginManager.reload`；不可用时优雅降级
+- `update` / `batch` API 响应新增 `reloaded` 字段，报告每个插件的重载状态
+- 新增 `reloadPartial` i18n 键，用于重载失败的 toast 提示
+- 新增 `buildBatchToast` 辅助函数，统一三条批量路径（保存 / 单独替换 / 一键设置）的 toast 消息构造
+- 创建 `CHANGELOG.md`，记录从 v1.0.0 起的完整变更历史
 
 ### Changed
 
-- Color system fully aligned to Bilibili official color card (v1.4) — light mode `--bg` `#F1F2F3` → `#FFFFFF`, `--primary-hover` `#00A1E9` → `#40C5F1`, brand pink `#FB7299` → `#FF6699`; dark mode uses official independent design values (`--bg` `#1A1A1A` → `#17181A`, `--primary` `#4FB8DE` → `#0087BD`, `--accent` `#FC9EB9` → `#D44E7D`, status colors, borders, shadows, text colors all updated)
-- Provider discovery fallback #2: `pmgr.chat_providers` (nonexistent attribute) → `pmgr.provider_insts` (correct `list[Provider]`), with dual-type `provider_config` handling matching tier 1
-- `_read_sort_order` merged into `_scan_all_plugins_sync` — single `to_thread` call, cached results are pre-sorted, no redundant file read on cache hit
-- `api_update_provider`: `cfg_dir` acquisition moved inside `_write_lock` to eliminate race window
-- Backend `error_response` messages unified to English for consistency
-- README updated with "instant effect" documentation and auto-reload behavior
+- 配色全量对齐 Bilibili 官方色卡——浅色 `--bg` `#F1F2F3` → `#FFFFFF`、`--primary-hover` `#00A1E9` → `#40C5F1`、品牌粉 `#FB7299` → `#FF6699`；深色使用官方独立设计值（`--bg` `#1A1A1A` → `#17181A`、`--primary` `#4FB8DE` → `#0087BD`、`--accent` `#FC9EB9` → `#D44E7D`，状态色、边框、阴影、文字色全部更新）
+- Provider 降级第 2 层从不存在的 `pmgr.chat_providers` 改为正确的 `pmgr.provider_insts`（`list[Provider]`），处理逻辑与第 1 层一致
+- `_read_sort_order` 合并进 `_scan_all_plugins_sync`，单次 `to_thread` 调用，缓存结果已排序，缓存命中时不再重复读取排序文件
+- `api_update_provider` 的 `cfg_dir` 获取移入 `_write_lock` 内，消除竞态窗口
+- 后端 `error_response` 文案统一为英文
+- README 新增"即时生效"说明及自动重载机制文档
 
 ### Fixed
 
-- `movePlugin` no longer wipes the persisted hidden-plugins list — was POSTing `{order}` without `hidden`, causing data loss; now routes through `scheduleSidebarPersist` (includes `order + hidden`, debounced, in-flight guarded)
-- Concurrent writers to `save-sort-order` race condition resolved — `movePlugin` and `persistSidebar` now share a single debounced persistence path
-- Batch write failure no longer double-counts fields that already failed at `_set_nested_value` stage — write-error entries only for fields that actually succeeded
-- Dialog error paths now refresh preview via `loadAll()` + `updateSwitchPreview()` / `updateSetAllPreview()` to prevent stale-data re-submission
-- Orphaned `.tmp.*` files cleaned before each write (prevents accumulation from process crashes mid-write)
+- 修复 `movePlugin` 清空隐藏列表的数据丢失问题——原仅 POST `{order}` 不含 `hidden`，现统一走 `scheduleSidebarPersist`（含 `order + hidden`，防抖 + 在途保护）
+- 修复 `save-sort-order` 并发写入竞态——`movePlugin` 与 `persistSidebar` 现共享单条防抖持久化路径
+- 修复批量写入失败时重复报告已失败字段的问题——写入错误仅报告实际成功设置的字段
+- 修复对话框错误后预览陈旧导致可基于过期数据重复提交的问题——错误路径增加 `loadAll()` + `updateSwitchPreview()` / `updateSetAllPreview()` 刷新
+- 修复进程崩溃遗留的 `.tmp.*` 孤儿文件——写入前自动清理同 stem 的临时文件
 
 ### Removed
 
-- Manual `?v=1.4.1` cache-busting on `app.js` / `style.css` (managed by AstrBot `asset_token`)
-- Dead i18n keys `sortSaved` / `sortFailed` (no longer used after `movePlugin` rewrite)
-- Dead variable `prevOrder` in `movePlugin` (rollback logic removed with direct-save path)
+- 移除 `app.js` / `style.css` 上的手动 `?v=` 缓存破坏（由 AstrBot `asset_token` 管理）
+- 移除死键 `sortSaved` / `sortFailed`（`movePlugin` 重写后不再使用）
+- 移除 `movePlugin` 中的死变量 `prevOrder`（回滚逻辑已随直存路径移除）
 
 ## [1.4.1] - 2026-08-02
 
 ### Changed
 
-- Restructured README per 15-point writing spec with table of contents
-- Rewrote README header and features section
-- Declared `pyyaml` as an explicit runtime dependency in `requirements.txt`
-- Removed `astrbot_version` and `support_platforms` annotations from `metadata.yaml`
+- 按 15 点规范重写 README 结构并添加目录
+- 重写 README 头部与功能介绍
+- 在 `requirements.txt` 中显式声明 `pyyaml` 运行时依赖
+- 从 `metadata.yaml` 中移除 `astrbot_version` 和 `support_platforms`
 
 ### Fixed
 
-- Accent button text stays white in dark mode (was turning black)
-- Sidebar toggle button dims to muted pink in dark mode (was glaring bright pink)
+- 深色模式下强调色按钮文字保持白色（原会变黑）
+- 侧边栏开关按钮在深色模式下使用灰暗色调（原为刺眼亮粉）
 
 ## [1.4.0] - 2026-08-02
 
 ### Added
 
-- Two-line plugin titles: display name (serif) + full plugin id (muted small text)
-- Source Han Serif / Source Han Sans dual-font typography system
-- Centered sticky card-style header bar with backdrop blur
-- Light/dark mode screenshots in README
-- Sidebar navigation with plugin jump, hide/show (eye toggle), and drag-to-reorder
-- Plugin sort order + hidden list persistence to `{PLUGIN_NAME}_sort_order.json`
-- Dangling-model warning style for fields whose saved provider no longer exists
-- Force-refresh button to bypass the 30-second scan cache
-- Frontend consistency check script (`tests/check_frontend.mjs`)
+- 两行插件标题：显示名（宋体）+ 完整插件 ID（灰色小字）
+- 思源宋体 / 思源黑体双字体排版系统
+- 居中 sticky 卡片式页头（毛玻璃效果）
+- README 中新增浅色 / 深色模式截图
+- 侧边栏导航：插件跳转、隐藏 / 显示（眼睛切换）、拖拽排序
+- 插件排序 + 隐藏列表持久化到 `{PLUGIN_NAME}_sort_order.json`
+- 悬空模型警告样式（保存的值在 provider 列表中不存在时高亮）
+- 强制刷新按钮，绕过 30 秒扫描缓存
+- 前端一致性检查脚本（`tests/check_frontend.mjs`）
 
 ### Fixed
 
-- Async-blocking I/O: all filesystem operations now run via `asyncio.to_thread`
-- Payload validation: non-dict request bodies now return HTTP 400 instead of 500
-- YAML display-name parsing replaced fragile hand-written parser with PyYAML
-- Atomic JSON writes (tmp file + rename) to prevent corruption on interruption
+- 异步阻塞 I/O：所有文件系统操作改用 `asyncio.to_thread`
+- 请求体验证：非 dict 请求体返回 HTTP 400 而非 500
+- YAML 显示名解析改用 PyYAML（替代脆弱的手写解析器）
+- 原子 JSON 写入（临时文件 + rename），防止写入中断导致损坏
 
 ## [1.2.4] - 2026-07-31
 
 ### Changed
 
-- Unified README per writing convention (flat badges, Python badge, view counter)
+- 按书写规范统一 README（扁平徽章、Python 徽章、浏览量统计）
 
 ## [1.2.3] - 2026-07-30
 
 ### Fixed
 
-- Button state management and cache issues
+- 按钮状态管理与缓存问题
 
 ### Changed
 
-- Updated installation instructions to use plugin market source
+- 更新安装方式为插件市场源安装
 
 ## [1.2.1] - 2026-07-25
 
 ### Changed
 
-- Removed i18n English support and simplified display name lookup
-- Cleaned up unnecessary files (`__pycache__`, `en-US.json`)
+- 移除 i18n 英文支持，简化显示名查找
+- 清理不必要的文件（`__pycache__`、`en-US.json`）
 
 ### Fixed
 
-- Bug fixes and security improvements
+- Bug 修复与安全改进
 
 ## [1.1.0] - 2026-06-25
 
 ### Added
 
-- Quick Switch (single replace) feature: replace all fields using one model with another
-- Set All feature: set all model fields to a single model in one operation
-- Plugin sort order feature with up/down buttons and persistence
-- i18n support with Chinese/English toggle
-- Info message on settings page
+- 单独替换功能：把所有使用某模型的配置项一次性替换为新模型
+- 一键设置功能：将所有配置项统一设为同一个模型
+- 插件排序功能（上移 / 下移按钮 + 持久化）
+- 中英文切换的 i18n 支持
+- 设置页面信息提示
 
 ### Changed
 
-- License changed to AGPL-3.0
-- Language button uses Unicode globe icon
-- Config item labels and status dot colors updated
+- 许可证改为 AGPL-3.0
+- 语言按钮使用 Unicode 地球图标
+- 更新配置项标签与状态点颜色
 
 ## [1.0.0] - 2026-06-22
 
 ### Added
 
-- Initial release
-- Unified model configuration manager WebUI page
-- Scans all plugins' `_conf_schema.json` for `select_provider*` fields
-- Centralized view and modification of LLM model assignments
-- Atomic config file writes with `asyncio.Lock` serialization
-- 3-tier provider discovery fallback chain
-- Input sanitization with path traversal prevention
+- 初始版本
+- 统一模型配置管理 WebUI 页面
+- 扫描所有插件的 `_conf_schema.json` 中 `select_provider*` 字段
+- 集中查看和修改 LLM 模型分配
+- 原子配置文件写入（`asyncio.Lock` 序列化）
+- 3 层 provider 发现降级链
+- 输入消毒与路径遍历防护
